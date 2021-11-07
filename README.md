@@ -20,4 +20,6 @@ where --model can be ['gcn', 'sage'] and --dataset can be ['german', 'credit', '
 
 model weights are saved to weights folder and evaluation metricss are saved to results. 
 
+# To perform various types of training, code can be found in the training_methods folder
 
+In here, you will find methods such as nifty, brute_force, and fairedit, which will all incorporate some form or fair training.  
