@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch_geometric.nn as Gnn
+import torch_geometric as torchG
 
 class VGAE(nn.Module):
 	def __init__(self, input_feat_dim, hidden_dim1, hidden_dim2):
@@ -11,10 +12,16 @@ class VGAE(nn.Module):
 		self.decode = Gnn.InnerProductDecoder()
 	
 	def encode(self, x, adj):
+		tadj = adj
+		print(type(adj))
+		if (isinstance(adj,torch.sparse_coo_tensor)):
+			tadj = adj.to_dense()
 		hideen1 = self.gc1(x,adj)
 		return self.gc_mean(hideen1,adj), self.gc_logvar(hideen1,adj)
 
 	def reparameterize(self, mu, logvar):
+		if (isinstance(adj,torch.sparse_coo_tensor)):
+			tadj = adj.to_dense()
 		if self.training:
 			std = torch.exp(logvar)
 			eps = torch.randn_like(std)
