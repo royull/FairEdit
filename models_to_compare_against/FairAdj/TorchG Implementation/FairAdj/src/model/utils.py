@@ -70,7 +70,9 @@ def get_score(emb: np.ndarray, test_edges_true: List, test_edges_false: List) ->
 def project(y: torch.tensor):
     des, _ = torch.sort(y, descending=True)
     cumsum = torch.cumsum(des, dim=0)
-    pos = (torch.ones(des.shape[0]) / torch.arange(1, des.shape[0] + 1)).cuda()
+    pos = (torch.ones(des.shape[0]) / torch.arange(1, des.shape[0] + 1))
+    if torch.cuda.is_available():
+        pos = pos.cuda()
 
     rho = des + pos * (torch.ones(des.shape[0]).to(y.device) - cumsum)
     rho = (rho > 0).sum()

@@ -76,8 +76,8 @@ def main(args):
                   args.T1), "Loss: {:.3f};".format(cur_loss))
 
         for epoch in range(args.T2):
-            adj_norm_dense = adj_norm.requires_grad_(True).to_dense().long()
-            recovered = model(features, adj_norm_dense)[0]
+            adj_norm.storage._value.requires_grad = True
+            recovered = model(features, adj_norm)[0]
 
             if args.eq:
                 intra_score = recovered[intra_link_pos[:,
@@ -96,15 +96,21 @@ def main(args):
 
             print("Epoch in T2: [{:d}/{:d}];".format(epoch +
                   1, args.T2), "Loss: {:.5f};".format(cur_loss))
+            # grad_values = adj_norm.storage._value.grad
+            adj_norm_grad_dense = SparseTensor(col = adj_norm.storage._col, row = adj_norm.storage._row, value=adj_norm.storage._value.grad).to_dense()
 
-            adj_norm = adj_norm.add(adj_norm.grad.mul(-args.eta)).detach()
-            torch_sparse.SparseTensor
-            adj_norm = adj_norm.to_dense()
+
+            # adj_norm = adj_norm.add(adj_norm.grad.mul(-args.eta)).detach()
+            adj_norm = (adj_norm.to_dense() + adj_norm_grad_dense.mul(-args.eta)).detach()
+
+            # adj_norm = adj_norm.add(adj_norm_grad_sp.mul(-args.eta)).detach()
+            # adj_norm = adj_norm.to_dense()
 
             for i in range(adj_norm.shape[0]):
                 adj_norm[i] = project(adj_norm[i])
 
-            adj_norm = adj_norm.to_sparse()
+            # adj_norm = adj_norm.to_sparse()
+            adj_norm = SparseTensor.from_dense(adj_norm)
 
     # Evaluation
     model.eval()
