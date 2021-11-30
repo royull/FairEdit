@@ -8,6 +8,7 @@ from torch_geometric.nn import GCNConv
 class GCN(nn.Module):
     def __init__(self, nfeat, nhid, nclass, dropout):
         super(GCN, self).__init__()
+        self.model_name = 'gcn'
         self.body = GCN_Body(nfeat,nhid,dropout)
         self.fc = nn.Linear(nhid, nclass)
 

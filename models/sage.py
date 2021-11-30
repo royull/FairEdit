@@ -7,6 +7,7 @@ from torch_geometric.nn import SAGEConv
 class SAGE(nn.Module):
     def __init__(self, nfeat, nhid, nclass, dropout): 
         super(SAGE, self).__init__()
+        self.model_name = 'sage'
         self.conv1 = SAGEConv(nfeat, nhid, normalize=True)
         self.conv1.aggr = 'mean'
         self.transition = nn.Sequential(
