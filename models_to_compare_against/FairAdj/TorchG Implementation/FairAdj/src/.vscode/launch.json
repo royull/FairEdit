@@ -14,7 +14,7 @@
 				"--dataset",
 				"cora",
 				"--device",
-				"cuda:0",
+				"cpu",
 				"--eta",
 				"0.2",
 				"--T2",
