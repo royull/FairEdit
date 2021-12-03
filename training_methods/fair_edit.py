@@ -18,6 +18,9 @@ class fair_edit_trainer():
         self.train_idx = train_idx
         self.val_idx = val_idx
 
+    def fair_loss(self):
+        
+
     def train(self, epochs=200):
 
         best_loss = 100
@@ -35,6 +38,8 @@ class fair_edit_trainer():
             loss_train.backward()
             self.optimizer.step()
 
+       
+            
             # Evaluate validation set performance separately,
             self.model.eval()
             output = self.model(self.features, self.edge_index)
