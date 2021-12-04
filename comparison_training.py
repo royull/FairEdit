@@ -3,6 +3,7 @@ import ipdb
 import time
 import argparse
 import numpy as np
+from torch_geometric.utils import convert
 
 import torch
 import torch.nn.functional as F
@@ -12,6 +13,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from utils import *
+from models.fairgnn.fairgnn_wrapped import fgn
 
 def main():
         parser = argparse.ArgumentParser()
@@ -81,9 +83,9 @@ def main():
         weight_decay = 5e-4
 
         num_class = labels.unique().shape[0]-1
-        if args.model == 'fairadj':
-                pass
-
+        
+        if args.model == 'fairgnn':
+                accu, parity, equality, f1 = fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens, device)
         elif args.model == 'fairwalk':
                 pass
 
