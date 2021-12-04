@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
-from gcn import *
-from fgn_utils import *
+from models.gcn import *
+from models.fairgnn.fgn_utils import *
 
 # FairGNN model (Use GCN only)
 

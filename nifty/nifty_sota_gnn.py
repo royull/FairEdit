@@ -13,7 +13,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from utils import *
-from models import *
+from nifty.models import *
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv
 from sklearn.metrics import f1_score, roc_auc_score
 from torch_geometric.utils import dropout_adj, convert

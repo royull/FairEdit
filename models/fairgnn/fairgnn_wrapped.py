@@ -20,9 +20,9 @@ from torch_geometric.utils import dropout_adj, convert
 import networkx as nx
 from aif360.sklearn.metrics import consistency_score as cs
 
-from fgn_utils import *
-from fairgnn import *
-from baseline_fairGNN import *
+from models.fairgnn.fgn_utils import *
+from models.fairgnn.fairgnn import *
+from models.fairgnn.baseline_fairGNN import *
 
 
 def fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens, device):
