@@ -20,6 +20,15 @@ where --model can be ['gcn', 'sage'] and --dataset can be ['german', 'credit', '
 
 model weights are saved to weights folder and evaluation metricss are saved to results. 
 
+# comparison_training.py
+
+contains models to compare against. Example:
+
+python comparison_training.py --dropout 0.5 --hidden 16 --lr 1e-3 --epochs 1000 --model fairgnn --dataset german --seed 1 --num_layers 32
+
+where --model can be ['fairgnn', 'fairwalk'] and --dataset can be ['german', 'credit', 'bail'] 
+
+
 # To perform various types of training, code can be found in the training_methods folder
 
 In here, you will find methods such as nifty, brute_force, and fairedit, which will all incorporate some form or fair training.  
