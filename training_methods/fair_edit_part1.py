@@ -9,7 +9,7 @@ def add_drop_edge_random(graph_edge_index,p=0.5,q=0.5):
     q: probability of add edge
     returns: edge_index
     """
-    graph_edge_index, _ = dropout_adj(graph_edge_index, p=p)
+    graph_edge_index, _ = dropout_adj(graph_edge_index, p=p,force_undirected=True)
     B=to_scipy_sparse_matrix(graph_edge_index)
     b=B.toarray()
     n=len(b)

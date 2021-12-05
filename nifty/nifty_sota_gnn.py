@@ -162,7 +162,7 @@ else:
 
 edge_index = convert.from_scipy_sparse_matrix(adj)[0]
 
-#%%    
+#%%   
 # Model and optimizer
 num_class = labels.unique().shape[0]-1
 if args.model == 'gcn':
