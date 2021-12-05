@@ -19,11 +19,8 @@ from models.sage import SAGE
 # from models.appnp import APPNP
 from training_methods.standard import standard_trainer
 from training_methods.brute_force import bf_trainer
-<<<<<<< HEAD
 from training_methods.fair_edit import fair_edit_trainer
-=======
 from training_methods.nifty import nifty
->>>>>>> 9c52b6e6b9ee3b62352159f40c15e8bc3c4f4ee8
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv
 from torch_geometric.data import Data
 from sklearn.metrics import f1_score, roc_auc_score
@@ -134,23 +131,6 @@ def main():
         print("here")
         print(edge_index.shape)
         trainer = None
-<<<<<<< HEAD
-        if args.training_method == 'standard':   
-                trainer = standard_trainer(model=model, dataset=args.dataset, optimizer=optimizer, 
-                                                features=features, edge_index=edge_index, 
-                                                labels=labels, device=device, train_idx=idx_train, 
-                                                val_idx=idx_val)
-        elif args.training_method == 'brute':  
-                trainer = bf_trainer(model=model, sense_idx = sens_idx, dataset=args.dataset, optimizer=optimizer, 
-                                                features=features, edge_index=edge_index, 
-                                                labels=labels, device=device, train_idx=idx_train, 
-                                                val_idx=idx_val)
-        elif args.training_method == 'fairedit':  
-                trainer = fair_edit_trainer(model=model, dataset=args.dataset, optimizer=optimizer,
-                                                features=features, edge_index=edge_index,
-                                                labels=labels, device=device, train_idx=idx_train,
-                                                val_idx=idx_val)
-=======
         if args.training_method in ['standard','brute','fairedit']:
                 if args.training_method == 'standard':   
                         trainer = standard_trainer(model=model, dataset=args.dataset, optimizer=optimizer, 
@@ -170,7 +150,6 @@ def main():
                                                         val_idx=idx_val)
                 trainer.train(epochs=200) # moved up because training epochs are already incorporated into nifty
 
->>>>>>> 9c52b6e6b9ee3b62352159f40c15e8bc3c4f4ee8
         elif args.training_method == 'nifty':  
                 acc, f1s, parity, equality = nifty(features=features,edge_index=edge_index,labels=labels,
                 device=device,sens=sens,sens_idx=sens_idx,idx_train=idx_train,idx_test=idx_test,idx_val=idx_val,
