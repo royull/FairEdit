@@ -147,8 +147,8 @@ def main():
                                                         features=features, edge_index=edge_index,
                                                         labels=labels, device=device, train_idx=idx_train,
                                                         val_idx=idx_val)
-                trainer.train(epochs=200)
-                
+                trainer.train(epochs=200) # moved up because training epochs are already incorporated into nifty
+
         elif args.training_method == 'nifty':  
                 acc, f1s, parity, equality = nifty(features=features,edge_index=edge_index,labels=labels,
                 device=device,sens=sens,sens_idx=sens_idx,idx_train=idx_train,idx_test=idx_test,idx_val=idx_val,
