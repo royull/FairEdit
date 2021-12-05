@@ -1,3 +1,4 @@
+from os import error
 import dgl
 import ipdb
 import time
@@ -14,8 +15,9 @@ warnings.filterwarnings('ignore')
 from utils import *
 from models.gcn import GCN
 from models.sage import SAGE
-from models.appnp import APPNP
+# from models.appnp import APPNP
 from training_methods.standard import standard_trainer
+from training_methods.brute_force import bf_trainer
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv
 from torch_geometric.data import Data
 from sklearn.metrics import f1_score, roc_auc_score
@@ -107,11 +109,11 @@ def main():
                         nclass=num_class,
                         dropout=0.5)
         
-        elif args.model == 'appnp':
-                model = APPNP(nfeat=features.shape[1],
-                        nhid=64,
-                        nclass=num_class,
-                        K=2, alpha=0.1, dropout=0.5)
+        # elif args.model == 'appnp':
+        #         model = APPNP(nfeat=features.shape[1],
+        #                 nhid=64,
+        #                 nclass=num_class,
+        #                 K=2, alpha=0.1, dropout=0.5)
 
         #### Set up training ####
         lr = .01
@@ -123,17 +125,30 @@ def main():
         edge_index = edge_index.to(device)
         labels = labels.to(device)
 
+        print("here")
+        print(edge_index.shape)
+        trainer = None
         if args.training_method == 'standard':   
                 trainer = standard_trainer(model=model, dataset=args.dataset, optimizer=optimizer, 
                                                 features=features, edge_index=edge_index, 
                                                 labels=labels, device=device, train_idx=idx_train, 
                                                 val_idx=idx_val)
         elif args.training_method == 'brute':  
+                trainer = bf_trainer(model=model, sense_idx = sens_idx, dataset=args.dataset, optimizer=optimizer, 
+                                                features=features, edge_index=edge_index, 
+                                                labels=labels, device=device, train_idx=idx_train, 
+                                                val_idx=idx_val)
                 pass
         elif args.training_method == 'fairedit':  
-                pass
+                trainer = fair_edit_trainer(model=model, dataset=args.dataset, optimizer=optimizer,
+                                                features=features, edge_index=edge_index,
+                                                labels=labels, device=device, train_idx=idx_train,
+                                                val_idx=idx_val)
         elif args.training_method == 'nifty':  
                 pass
+        else:
+                print("Error: Training Method not provided")
+                exit(1)
 
         trainer.train(epochs=200)
 
