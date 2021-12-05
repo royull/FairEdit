@@ -1,0 +1,165 @@
+\documentclass[12pt,a4paper]{article}
+%\documentclass{article}
+
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\usepackage{float}
+
+\title{Documentation for Social Random Walk}
+\author{Christian Geldermann\\on behalf of CISPA}
+
+\begin{document}
+\maketitle
+\section{Program Options}
+	\subsection{Mandatory options}
+		\subsubsection{$--if$}
+			Defines the input file. The path can be relative or absolute, as long as \textit{fopen} accepts it.
+		\subsubsection{$--of$}
+			Defines the output file, The path can be relative or absolute, as long as \textit{fopen} accepts it.
+		\subsubsection{$--walks$}
+			Defines the number of walks.
+		\subsubsection{$--length$}
+			Defines the number of nodes that a single walk should consist of.
+	\subsection{Optional options}
+		\subsubsection{$-p$ or $--print$}
+			Prints the transitions of the graph. One line for each transition.
+		\subsubsection{$-w$ or $--weighted$}
+			Indicates that the input file contains a weighted graph.
+		\subsubsection{$-o$ or $--optiTransOrder$}
+			Indicates that the order of transitions should be optimized for better performance. This optimization is only available for weighted graphs and has no effect on non-weighted graphs.
+			
+			For weighted graphs the option sorts the transitions by weight (highest weight first). If all weights are mostly equal or sorted with highest weight first anyway, you can skip the option.
+		\subsubsection{$-u$ or $--undirected$}
+			Converts a graph into an undirected graph. If the graph is weighted, the reverse of a transition is only added if it does not already exist. If it exist, nothing changes for those two associated transitions.
+		\subsubsection{$-r$ or $--reflect$}
+			Reflects the whole graph. The result is an undirected graph. For un-weighted graphs the effect is the same as $-u$. For weighted graphs, the reverse of a transition is added even if it already exists. This way the resulting graph contains transitions in both directions for every transition of the original graph. The weight of a transition from node $n_1$ to $n_2$ is the sum of the transition from $n_1$ to $n_2$ and that from $n_2$ to $n_1$ in the original graph.
+\section{Input format}
+	\subsection{Non-weighted graphs}
+		The input file has to contain one transition per line (determined by '\textbackslash n'). Every line has to consist of 2 numbers (the source node followed by the destination node) separated by any non-digits (any ASCII character except '0' to '9'). To see an example, have a look at the \textit{Examples} section.
+	\subsection{Weighted graphs}
+		The input file has to be structured as that for non-weighted graphs except that there hast to be a third number per line that specifies the weight. The weight is interpreted as the probability to calculate the random walks.
+		
+		Assume a node has 3 outgoing transitions with weights 2, 3 and 5. The probability that the transition with weight 2 is taken is $\frac{2}{2+3+5}=\frac{2}{10}=20\%$.
+\section{Examples}
+	\subsection{Original graphs}
+		\tikzset
+		{
+			>={Stealth[black]},
+			every node/.style={fill=white,thick},
+			every edge/.style={draw=red,very thick}
+		}
+		\tikzstyle{graphnodes} = [circle,thick,draw]
+		\subsubsection{Non-weighted}
+			Lets assume the following graph to be defined in the file \textit{graph.txt}:
+			\begin{figure}[H]
+				\centering
+				\begin{tikzpicture}
+					\begin{scope}[every node/.style=graphnodes]
+						\node(A) at (0, 0){A};
+						\node(B) at (3, 0){B};
+						\node(C) at (0, -3){C};
+						\node(D) at (3, -3){D};
+					\end{scope}
+					
+					\path [->] (A) edge (B);
+					\path [<->] (A) edge (C);
+					\path [->] (B) edge (D);
+					\path [<->] (C) edge (D);
+				\end{tikzpicture}
+				\caption{Basic non-weighted graph} \label{fig:nwGraph}
+			\end{figure}
+			The \textit{graph.txt} file content could be:\\
+			0,1\\0,2\\1,3\\2,0\\2,3\\3,2
+			\\\\
+			The node numbers may also start with 1 or any other number. But the maximum node number should be kept as small as possible. The transitions don't need to be sorted in any way.
+		\subsubsection{Weighted}
+			Lets assume the following weighted graph to be defined in the file \textit{graph\_weighted.txt}:
+			\begin{figure}[H]
+				\centering
+				\begin{tikzpicture}
+					\begin{scope}[every node/.style=graphnodes]
+						\node(A) at (0, 0){A};
+						\node(B) at (3, 0){B};
+						\node(C) at (0, -3){C};
+						\node(D) at (3, -3){D};
+					\end{scope}
+					
+					\path [->] (A) edge node{$1$} (B);
+					\path [->] (A) edge[bend right] node{$4$} (C);
+					\path [->] (C) edge[bend right] node{$6$} (A);
+					\path [->] (B) edge node{$3$} (D);
+					\path [->] (C) edge[bend right] node{$1$} (D);
+					\path [->] (D) edge[bend right] node{$1$} (C);
+				\end{tikzpicture}
+				\caption{Basic weighted graph} \label{fig:wGraph}
+			\end{figure}
+			The \textit{graph.txt} file content could be:\\
+			0,1,1\\0,2,4\\1,3,3\\2,0,6\\2,3,1\\3,2,1
+	\subsection{Make undirected ($-u$)}
+		\subsubsection{Non-weighted}
+			Calling \textit{./walk -u --if=./graph.txt --of=./out.txt --walks=20 --length=10} would output 20 random walks of length 10 to \textit{out.txt}. The graph from \textit{graph.txt} (see figure \ref{fig:nwGraph}) is converted to the graph in figure \ref{fig:unwGraph} before performing the walks:
+			\begin{figure}[H]
+				\centering
+				\begin{tikzpicture}
+					\begin{scope}[every node/.style=graphnodes]
+						\node(A) at (0, 0){A};
+						\node(B) at (3, 0){B};
+						\node(C) at (0, -3){C};
+						\node(D) at (3, -3){D};
+					\end{scope}
+					\path [<->] (A) edge (B);
+					\path [<->] (A) edge (C);
+					\path [<->] (B) edge (D);
+					\path [<->] (C) edge (D);
+				\end{tikzpicture}		
+				\caption{Undirected non-weighted graph} \label{fig:unwGraph}		
+			\end{figure}
+			Using $-r$ or $--ru$ instead of $-u$ would do exactly the same.
+		\subsection{Weighted}
+			Calling \textit{./walk -uow --if=./graph\_weighted.txt --of=./out.txt --walks=20 --length=10} would output 20 random walks of length 10 to \textit{out.txt}. The graph from \textit{graph\_weighted.txt} (see figure \ref{fig:wGraph}) is converted to the following before performing the walks:
+			\begin{figure}[H]
+				\centering
+				\begin{tikzpicture}
+					\begin{scope}[every node/.style=graphnodes]
+						\node(A) at (0, 0){A};
+						\node(B) at (3, 0){B};
+						\node(C) at (0, -3){C};
+						\node(D) at (3, -3){D};
+					\end{scope}
+					\path [->] (A) edge[bend right] node{$1$} (B);
+					\path [->] (B) edge[bend right] node{$1$} (A);
+					\path [->] (A) edge[bend right] node{$4$} (C);
+					\path [->] (C) edge[bend right] node{$6$} (A);
+					\path [->] (B) edge[bend right] node{$3$} (D);
+					\path [->] (D) edge[bend right] node{$3$} (B);
+					\path [->] (C) edge[bend right] node{$1$} (D);
+					\path [->] (D) edge[bend right] node{$1$} (C);
+				\end{tikzpicture}
+				\caption{Undirected weighted graph} \label{fig:uwGraph}
+			\end{figure}
+			Calling \textit{./walk -row --if=./graph\_weighted.txt --of=./out.txt --walks=20 --length=10} instead would perform the walks on the graph:
+			\begin{figure}[H]
+				\centering
+				\begin{tikzpicture}
+					\begin{scope}[every node/.style=graphnodes]
+						\node(A) at (0, 0){A};
+						\node(B) at (3, 0){B};
+						\node(C) at (0, -3){C};
+						\node(D) at (3, -3){D};
+					\end{scope}
+					\path [->] (A) edge[bend right] node{$1$} (B);
+					\path [->] (B) edge[bend right] node{$1$} (A);
+					\path [->] (A) edge[bend right] node{$10$} (C);
+					\path [->] (C) edge[bend right] node{$10$} (A);
+					\path [->] (B) edge[bend right] node{$3$} (D);
+					\path [->] (D) edge[bend right] node{$3$} (B);
+					\path [->] (C) edge[bend right] node{$2$} (D);
+					\path [->] (D) edge[bend right] node{$2$} (C);
+				\end{tikzpicture}
+				\caption{Reflected weighted graph} \label{fig:rwGraph}
+			\end{figure}
+			The $-o$ option is only for performance reasons.
+\end{document}
+
+
