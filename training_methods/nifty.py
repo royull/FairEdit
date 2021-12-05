@@ -53,17 +53,17 @@ def ssf_validation(model, x_1, edge_index_1, x_2, edge_index_2, y,idx_val,device
     return sim_loss, l3+l4
 
 # Encoder output
-# args.encoder = ['gcn','sage']
+# model = ['gcn','sage']
 
-def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx_val,encode,num_class,lr,weight_decay,
-    hidden=16,proj_hidden=16,drop_edge_rate_1=0.001,drop_edge_rate_2=0.001,drop_feature_rate_1=0.1,drop_feature_rate_2=0.1,
-    sim_coeff=0.6,epochs=1000):
+def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx_val,num_class,lr,weight_decay,
+    encoder_model='gcn',hidden=16,proj_hidden=16,drop_edge_rate_1=0.001,drop_edge_rate_2=0.001,drop_feature_rate_1=0.1,
+    drop_feature_rate_2=0.1,sim_coeff=0.6,epochs=1000):
     '''
     Main Function for NIFTY. Choose 'encode' to be 'gcn' or 'sage' to comply with training.
     Input: listed above. Mostly from args. Some additional been set default value.
     Output: accuracy, f1, parity, counterfactual fairness
     '''
-    encoder = Encoder(in_channels=features.shape[1], out_channels=hidden, encoder=encode).to(device)	
+    encoder = Encoder(in_channels=features.shape[1], out_channels=hidden, encoder=encoder_model).to(device)	
     model = SSF(encoder=encoder, num_hidden=hidden, num_proj_hidden=proj_hidden, sim_coeff=sim_coeff, nclass=num_class).to(device)
     val_edge_index_1 = dropout_adj(edge_index.to(device), p=drop_edge_rate_1)[0]
     val_edge_index_2 = dropout_adj(edge_index.to(device), p=drop_edge_rate_2)[0]
@@ -147,9 +147,9 @@ def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx
         if (val_c_loss + val_s_loss) < best_loss:
             # print(f'{epoch} | {val_s_loss:.4f} | {val_c_loss:.4f}')
             best_loss = val_c_loss + val_s_loss
-            torch.save(model.state_dict(), f'weights_ssf_{encode}.pt')
+            torch.save(model.state_dict(), f'weights_ssf_{encoder_model}.pt')
 
-    model.load_state_dict(torch.load(f'weights_ssf_{encode}.pt'))
+    model.load_state_dict(torch.load(f'weights_ssf_{encoder_model}.pt'))
     model.eval()
     emb = model(features.to(device), edge_index.to(device))
     output = model.predict(emb)

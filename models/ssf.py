@@ -152,16 +152,8 @@ class Encoder(torch.nn.Module):
         self.base_model = base_model
         if self.base_model == 'gcn':
             self.conv = GCN(in_channels, out_channels)
-        elif self.base_model == 'gin':
-            self.conv = GIN(in_channels, out_channels)
         elif self.base_model == 'sage':
             self.conv = SAGE(in_channels, out_channels)
-        elif self.base_model == 'infomax':
-            enc_dgi = Encoder_DGI(nfeat=in_channels, nhid=out_channels)
-            self.conv = GraphInfoMax(enc_dgi=enc_dgi)
-        elif self.base_model == 'jk':
-            self.conv = JK(in_channels, out_channels)
-
         for m in self.modules():
             self.weights_init(m)
 
