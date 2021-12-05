@@ -13,7 +13,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from utils import *
-from nifty.models import *
+from models.gcn import *
+from models.sage import *
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv
 from sklearn.metrics import f1_score, roc_auc_score
 from torch_geometric.utils import dropout_adj, convert
@@ -162,7 +163,6 @@ else:
 
 edge_index = convert.from_scipy_sparse_matrix(adj)[0]
 
-#%%   
 # Model and optimizer
 num_class = labels.unique().shape[0]-1
 if args.model == 'gcn':
@@ -181,46 +181,6 @@ elif args.model == 'sage':
 	optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 	model = model.to(device)
 
-elif args.model == 'gin':
-	model = GIN(nfeat=features.shape[1],
-	            nhid=args.hidden,
-	            nclass=num_class,
-	            dropout=args.dropout)
-	optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-	model = model.to(device)
-
-elif args.model == 'jk':
-	model = JK(nfeat=features.shape[1],
-	            nhid=args.hidden,
-	            nclass=num_class,
-	            dropout=args.dropout)
-	optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-	model = model.to(device)
-
-elif args.model == 'infomax':
-	enc_dgi = Encoder_DGI(nfeat=features.shape[1], nhid=args.hidden)
-	enc_cls = Encoder_CLS(nhid=args.hidden, nclass=num_class)
-	model = GraphInfoMax(enc_dgi=enc_dgi, enc_cls=enc_cls)
-	optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-	model = model.to(device)
-
-elif args.model == 'rogcn':
-	model = RobustGCN(nnodes=adj.shape[0], nfeat=features.shape[1], nhid=args.hidden, nclass=num_class, dropout=args.dropout, device=device, seed=args.seed)
-
-elif args.model == 'ssf':
-	encoder = Encoder(in_channels=features.shape[1], out_channels=args.hidden, base_model=args.encoder).to(device)	
-	model = SSF(encoder=encoder, num_hidden=args.hidden, num_proj_hidden=args.proj_hidden, sim_coeff=args.sim_coeff, nclass=num_class).to(device)
-	val_edge_index_1 = dropout_adj(edge_index.to(device), p=args.drop_edge_rate_1)[0]
-	val_edge_index_2 = dropout_adj(edge_index.to(device), p=args.drop_edge_rate_2)[0]
-	val_x_1 = drop_feature(features.to(device), args.drop_feature_rate_2, sens_idx, sens_flag=False)
-	val_x_2 = drop_feature(features.to(device), args.drop_feature_rate_2, sens_idx)
-	par_1 = list(model.encoder.parameters()) + list(model.fc1.parameters()) + list(model.fc2.parameters()) + list(model.fc3.parameters()) + list(model.fc4.parameters())
-	par_2 = list(model.c1.parameters()) + list(model.encoder.parameters())
-	optimizer_1 = optim.Adam(par_1, lr=args.lr, weight_decay=args.weight_decay)
-	optimizer_2 = optim.Adam(par_2, lr=args.lr, weight_decay=args.weight_decay)
-	model = model.to(device)
-
-
 # Train model
 t_total = time.time()
 best_loss = 100
@@ -229,13 +189,10 @@ features = features.to(device)
 edge_index = edge_index.to(device)
 labels = labels.to(device)
 
-if args.model == 'rogcn':
-    model.fit(features, adj, labels, idx_train, idx_val=idx_val, idx_test=idx_test, verbose=True, attention=False, train_iters=args.epochs)
-
 for epoch in range(args.epochs+1):
     t = time.time()
 
-    if args.model in ['gcn', 'sage', 'gin', 'jk', 'infomax']:
+    if args.model in ['gcn', 'sage']:
         model.train()
         optimizer.zero_grad()
         output = model(features, edge_index)
@@ -266,71 +223,8 @@ for epoch in range(args.epochs+1):
             best_loss = loss_val.item()
             torch.save(model.state_dict(), 'weights_vanilla.pt')
 
-    elif args.model == 'ssf':
-        sim_loss = 0
-        cl_loss = 0
-        rep = 1
-        for _ in range(rep):
-            model.train()
-            optimizer_1.zero_grad()
-            optimizer_2.zero_grad()
-            edge_index_1 = dropout_adj(edge_index, p=args.drop_edge_rate_1)[0]
-            edge_index_2 = dropout_adj(edge_index, p=args.drop_edge_rate_2)[0]
-            x_1 = drop_feature(features, args.drop_feature_rate_2, sens_idx, sens_flag=False)
-            x_2 = drop_feature(features, args.drop_feature_rate_2, sens_idx)
-            z1 = model(x_1, edge_index_1)
-            z2 = model(x_2, edge_index_2)
 
-            # projector
-            p1 = model.projection(z1)
-            p2 = model.projection(z2)
-
-            # predictor
-            h1 = model.prediction(p1)
-            h2 = model.prediction(p2)
-
-            l1 = model.D(h1[idx_train], p2[idx_train])/2
-            l2 = model.D(h2[idx_train], p1[idx_train])/2
-            sim_loss += args.sim_coeff*(l1+l2)
-
-        (sim_loss/rep).backward()
-        optimizer_1.step()
-
-        # classifier
-        z1 = model(x_1, edge_index_1)
-        z2 = model(x_2, edge_index_2)
-        c1 = model.classifier(z1)
-        c2 = model.classifier(z2)
-
-        # Binary Cross-Entropy    
-        l3 = F.binary_cross_entropy_with_logits(c1[idx_train], labels[idx_train].unsqueeze(1).float().to(device))/2
-        l4 = F.binary_cross_entropy_with_logits(c2[idx_train], labels[idx_train].unsqueeze(1).float().to(device))/2
-
-        cl_loss = (1-args.sim_coeff)*(l3+l4)
-        cl_loss.backward()
-        optimizer_2.step()
-        loss = (sim_loss/rep + cl_loss)
-
-        # Validation
-        model.eval()
-        val_s_loss, val_c_loss = ssf_validation(model, val_x_1, val_edge_index_1, val_x_2, val_edge_index_2, labels)
-        emb = model(val_x_1, val_edge_index_1)
-        output = model.predict(emb)
-        preds = (output.squeeze()>0).type_as(labels)
-        auc_roc_val = roc_auc_score(labels.cpu().numpy()[idx_val], output.detach().cpu().numpy()[idx_val])
-
-        # if epoch % 100 == 0:
-        #     print(f"[Train] Epoch {epoch}:train_s_loss: {(sim_loss/rep):.4f} | train_c_loss: {cl_loss:.4f} | val_s_loss: {val_s_loss:.4f} | val_c_loss: {val_c_loss:.4f} | val_auc_roc: {auc_roc_val:.4f}")
-
-        if (val_c_loss + val_s_loss) < best_loss:
-            # print(f'{epoch} | {val_s_loss:.4f} | {val_c_loss:.4f}')
-            best_loss = val_c_loss + val_s_loss
-            torch.save(model.state_dict(), f'weights_ssf_{args.encoder}.pt')
-
-# print("Optimization Finished!")
-# print("Total time elapsed: {:.4f}s".format(time.time() - t_total))
-
-if args.model in ['gcn', 'sage', 'gin', 'jk', 'infomax']:
+if args.model in ['gcn', 'sage']:
     model.load_state_dict(torch.load('weights_vanilla.pt'))
     model.eval()
     output = model(features.to(device), edge_index.to(device))
@@ -339,28 +233,6 @@ if args.model in ['gcn', 'sage', 'gin', 'jk', 'infomax']:
     counter_output = model(counter_features.to(device), edge_index.to(device))
     noisy_features = features.clone() + torch.ones(features.shape).normal_(0, 1).to(device)
     noisy_output = model(noisy_features.to(device), edge_index.to(device))
-
-elif args.model == 'rogcn':
-    model.load_state_dict(torch.load(f'weights_rogcn_{args.seed}.pt'))
-    model.eval()
-    model = model.to('cpu')
-    output = model.predict(features.to('cpu'))
-    counter_features = features.to('cpu').clone()
-    counter_features[:, sens_idx] = 1 - counter_features[:, sens_idx]
-    counter_output = model.predict(counter_features.to('cpu'))
-    noisy_features = features.clone().to('cpu') + torch.ones(features.shape).normal_(0, 1).to('cpu')
-    noisy_output = model.predict(noisy_features)
-
-else:
-    model.load_state_dict(torch.load(f'weights_ssf_{args.encoder}.pt'))
-    model.eval()
-    emb = model(features.to(device), edge_index.to(device))
-    output = model.predict(emb)
-    counter_features = features.clone()
-    counter_features[:, sens_idx] = 1 - counter_features[:, sens_idx]
-    counter_output = model.predict(model(counter_features.to(device), edge_index.to(device)))
-    noisy_features = features.clone() + torch.ones(features.shape).normal_(0, 1).to(device)
-    noisy_output = model.predict(model(noisy_features.to(device), edge_index.to(device)))
 
 # Report
 output_preds = (output.squeeze()>0).type_as(labels)
