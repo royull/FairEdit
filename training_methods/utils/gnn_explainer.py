@@ -13,49 +13,6 @@ EPS = 1e-15
 
 
 class GNNExplainer(torch.nn.Module):
-    r"""The GNN-Explainer model from the `"GNNExplainer: Generating
-    Explanations for Graph Neural Networks"
-    <https://arxiv.org/abs/1903.03894>`_ paper for identifying compact subgraph
-    structures and small subsets node features that play a crucial role in a
-    GNN’s node-predictions.
-
-    .. note::
-
-        For an example of using GNN-Explainer, see `examples/gnn_explainer.py
-        <https://github.com/pyg-team/pytorch_geometric/blob/master/examples/
-        gnn_explainer.py>`_.
-
-    Args:
-        model (torch.nn.Module): The GNN module to explain.
-        epochs (int, optional): The number of epochs to train.
-            (default: :obj:`100`)
-        lr (float, optional): The learning rate to apply.
-            (default: :obj:`0.01`)
-        num_hops (int, optional): The number of hops the :obj:`model` is
-            aggregating information from.
-            If set to :obj:`None`, will automatically try to detect this
-            information based on the number of
-            :class:`~torch_geometric.nn.conv.message_passing.MessagePassing`
-            layers inside :obj:`model`. (default: :obj:`None`)
-        return_type (str, optional): Denotes the type of output from
-            :obj:`model`. Valid inputs are :obj:`"log_prob"` (the model
-            returns the logarithm of probabilities), :obj:`"prob"` (the
-            model returns probabilities), :obj:`"raw"` (the model returns raw
-            scores) and :obj:`"regression"` (the model returns scalars).
-            (default: :obj:`"log_prob"`)
-        feat_mask_type (str, optional): Denotes the type of feature mask
-            that will be learned. Valid inputs are :obj:`"feature"` (a single
-            feature-level mask for all nodes), :obj:`"individual_feature"`
-            (individual feature-level masks for each node), and :obj:`"scalar"`
-            (scalar mask for each each node). (default: :obj:`"feature"`)
-        allow_edge_mask (boolean, optional): If set to :obj:`False`, the edge
-            mask will not be optimized. (default: :obj:`True`)
-        log (bool, optional): If set to :obj:`False`, will not log any learning
-            progress. (default: :obj:`True`)
-        **kwargs (optional): Additional hyper-parameters to override default
-            settings in :attr:`~torch_geometric.nn.models.GNNExplainer.coeffs`.
-    """
-
     coeffs = {
         'edge_size': 0.005,
         'edge_reduction': 'sum',

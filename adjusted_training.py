@@ -18,6 +18,7 @@ from models.sage import SAGE
 # from models.appnp import APPNP
 from training_methods.standard import standard_trainer
 from training_methods.brute_force import bf_trainer
+from training_methods.fair_edit import fair_edit_trainer
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv
 from torch_geometric.data import Data
 from sklearn.metrics import f1_score, roc_auc_score
@@ -138,7 +139,6 @@ def main():
                                                 features=features, edge_index=edge_index, 
                                                 labels=labels, device=device, train_idx=idx_train, 
                                                 val_idx=idx_val)
-                pass
         elif args.training_method == 'fairedit':  
                 trainer = fair_edit_trainer(model=model, dataset=args.dataset, optimizer=optimizer,
                                                 features=features, edge_index=edge_index,
