@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from sklearn.metrics import f1_score, roc_auc_score
+from utils.gnn_explainer import GNNExplainer
 
 class fair_edit_trainer():
     def __init__(self, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
@@ -20,6 +21,11 @@ class fair_edit_trainer():
 
     def fair_loss(self):
         
+        grad_gen = GNNExplainer(self.model)
+
+        edge_mask = grad_gen.explain_graph(self.features, self.edge_index)
+        print(edge_mask)
+        sys.exit()
 
     def train(self, epochs=200):
 
@@ -48,6 +54,8 @@ class fair_edit_trainer():
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_val = F.binary_cross_entropy_with_logits(output[self.val_idx ], self.labels[self.val_idx ].unsqueeze(1).float().to(self.device))
 
+            self.fair_loss()
+            sys.exit()
         
             if loss_val.item() < best_loss:
                 best_loss = loss_val.item()

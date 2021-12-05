@@ -131,7 +131,10 @@ def main():
         elif args.training_method == 'brute':  
                 pass
         elif args.training_method == 'fairedit':  
-                pass
+                trainer = fair_edit_trainer(model=model, dataset=args.dataset, optimizer=optimizer,
+                                                features=features, edge_index=edge_index,
+                                                labels=labels, device=device, train_idx=idx_train,
+                                                val_idx=idx_val)
         elif args.training_method == 'nifty':  
                 pass
 
