@@ -1,4 +1,4 @@
-
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -30,8 +30,6 @@ class GNNExplainer(torch.nn.Module):
                  num_hops: Optional[int] = None, 
                  log: bool = True, **kwargs):
         super().__init__()
-        assert return_type in ['log_prob', 'prob', 'raw', 'regression']
-        assert feat_mask_type in ['feature', 'individual_feature', 'scalar']
         self.model = model
         self.lr = lr
         self.__num_hops__ = num_hops
@@ -121,25 +119,27 @@ class GNNExplainer(torch.nn.Module):
 
         # Get the initial prediction.
         with torch.no_grad():
-            out = self.model(x=x, edge_index=edge_index, batch=batch, **kwargs)
-            log_logits = self.__to_log_prob__(out)
-            pred_label = log_logits.argmax(dim=-1)
+            out = self.model(x=x, edge_index=edge_index, **kwargs)
+            #log_logits = self.__to_log_prob__(out)
+            pred_label = out.argmax(dim=-1)
 
         # TODO Change how set masks is done
         self.__set_masks__(x, edge_index)
         self.to(x.device)
         
-        optimizer = torch.optim.Adam(self.edge_mask, lr=self.lr)
+        optimizer = torch.optim.Adam([self.edge_mask], lr=self.lr)
 
-        optimizer.zero_grad()
-        h = x * self.node_feat_mask.sigmoid()
-        out = self.model(x=h, edge_index=edge_index, batch=batch, **kwargs)
+        for epoch in range(0, 20):
+            optimizer.zero_grad()
+            h = x * self.node_feat_mask.sigmoid()
+            out = self.model(x=h, edge_index=edge_index, **kwargs)
 
-        # TODO Update loss 
-        log_logits = self.__to_log_prob__(out)
-        loss = self.__loss__(-1, log_logits, pred_label)
-        loss.backward()
-        optimizer.step()
+            # TODO Update loss 
+            #log_logits = self.__to_log_prob__(out)
+            print(out.shape)
+            loss = self.__loss__(-1, out, pred_label)
+            loss.backward()
+            optimizer.step()
 
         edge_mask = self.edge_mask.detach().sigmoid()
 
@@ -152,7 +152,7 @@ class GNNExplainer(torch.nn.Module):
 
 class fair_edit_trainer():
     def __init__(self, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
-                    labels=None, device=None, train_idx=None, val_idx=None):
+                    labels=None, device=None, train_idx=None, val_idx=None, edit_num=20):
         self.model = model
         self.model_name = model.model_name
         self.dataset = dataset
@@ -163,14 +163,22 @@ class fair_edit_trainer():
         self.device = device
         self.train_idx = train_idx
         self.val_idx = val_idx
+        self.edit_num = edit_num
 
-    def fair_loss(self):
+    def fair_graph_edit(self):
         
         grad_gen = GNNExplainer(self.model)
 
         edge_mask = grad_gen.explain_graph(self.features, self.edge_index)
-        print(edge_mask)
-        sys.exit()
+        edge_index = torch.argmax(edge_mask)
+        print(type(self.edge_index))
+
+        # To add edge TODO
+
+        # To remove edge
+        self.edge_index = torch.cat((self.edge_index[:, :edge_index], self.edge_index[:, edge_index+1:]), axis=1)
+
+      
 
     def train(self, epochs=200):
 
@@ -199,9 +207,9 @@ class fair_edit_trainer():
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_val = F.binary_cross_entropy_with_logits(output[self.val_idx ], self.labels[self.val_idx ].unsqueeze(1).float().to(self.device))
 
-            self.fair_loss()
-            sys.exit()
-        
+            while epoch < self.edit_num:
+                self.fair_graph_edit()
+            
             if loss_val.item() < best_loss:
                 best_loss = loss_val.item()
                 torch.save(self.model.state_dict(), 'results/weights/{0}_{1}_{2}.pt'.format(self.model_name, 'fairedit', self.dataset))
