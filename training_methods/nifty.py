@@ -55,20 +55,18 @@ def ssf_validation(model, x_1, edge_index_1, x_2, edge_index_2, y,idx_val,device
 # Encoder output
 # model = ['gcn','sage']
 
-def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx_val,num_class,lr,weight_decay,
-    encoder_model='gcn',hidden=16,proj_hidden=16,drop_edge_rate_1=0.001,drop_edge_rate_2=0.001,drop_feature_rate_1=0.1,
-    drop_feature_rate_2=0.1,sim_coeff=0.6,epochs=1000):
+def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx_val,num_class,lr,weight_decay,args):
     '''
     Main Function for NIFTY. Choose 'encode' to be 'gcn' or 'sage' to comply with training.
     Input: listed above. Mostly from args. Some additional been set default value.
     Output: accuracy, f1, parity, counterfactual fairness
     '''
-    encoder = Encoder(in_channels=features.shape[1], out_channels=hidden, encoder=encoder_model).to(device)	
-    model = SSF(encoder=encoder, num_hidden=hidden, num_proj_hidden=proj_hidden, sim_coeff=sim_coeff, nclass=num_class).to(device)
-    val_edge_index_1 = dropout_adj(edge_index.to(device), p=drop_edge_rate_1)[0]
-    val_edge_index_2 = dropout_adj(edge_index.to(device), p=drop_edge_rate_2)[0]
-    val_x_1 = drop_feature(features.to(device), drop_feature_rate_1, sens_idx, sens_flag=False)
-    val_x_2 = drop_feature(features.to(device), drop_feature_rate_2, sens_idx)
+    encoder = Encoder(in_channels=features.shape[1], out_channels=args.hidden, base_model=args.model).to(device)	
+    model = SSF(encoder=encoder, num_hidden=args.hidden, num_proj_hidden=args.proj_hidden, sim_coeff=args.sim_coeff, nclass=num_class).to(device)
+    val_edge_index_1 = dropout_adj(edge_index.to(device), p=args.drop_edge_rate_1)[0]
+    val_edge_index_2 = dropout_adj(edge_index.to(device), p=args.drop_edge_rate_2)[0]
+    val_x_1 = drop_feature(features.to(device), args.drop_feature_rate_1, sens_idx, sens_flag=False)
+    val_x_2 = drop_feature(features.to(device), args.drop_feature_rate_2, sens_idx)
     par_1 = list(model.encoder.parameters()) + list(model.fc1.parameters()) + list(model.fc2.parameters()) + list(model.fc3.parameters()) + list(model.fc4.parameters())
     par_2 = list(model.c1.parameters()) + list(model.encoder.parameters())
     optimizer_1 = optim.Adam(par_1, lr=lr, weight_decay=weight_decay)
@@ -84,7 +82,7 @@ def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx
     labels = labels.to(device)
 
 
-    for epoch in range(epochs+1):
+    for epoch in range(args.epochs+1):
         t = time.time()
 
         sim_loss = 0
@@ -95,10 +93,10 @@ def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx
             model.train()
             optimizer_1.zero_grad()
             optimizer_2.zero_grad()
-            edge_index_1 = dropout_adj(edge_index, p=drop_edge_rate_1)[0]
-            edge_index_2 = dropout_adj(edge_index, p=drop_edge_rate_2)[0]
-            x_1 = drop_feature(features, drop_feature_rate_2, sens_idx, sens_flag=False)
-            x_2 = drop_feature(features, drop_feature_rate_2, sens_idx)
+            edge_index_1 = dropout_adj(edge_index, p=args.drop_edge_rate_1)[0]
+            edge_index_2 = dropout_adj(edge_index, p=args.drop_edge_rate_2)[0]
+            x_1 = drop_feature(features, args.drop_feature_rate_2, sens_idx, sens_flag=False)
+            x_2 = drop_feature(features, args.drop_feature_rate_2, sens_idx)
             z1 = model(x_1, edge_index_1)
             z2 = model(x_2, edge_index_2)
 
@@ -112,7 +110,7 @@ def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx
 
             l1 = model.D(h1[idx_train], p2[idx_train])/2
             l2 = model.D(h2[idx_train], p1[idx_train])/2
-            sim_loss += sim_coeff*(l1+l2)
+            sim_loss += args.sim_coeff*(l1+l2)
 
         # Fairness Training
         (sim_loss/rep).backward()
@@ -128,7 +126,7 @@ def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx
         l3 = F.binary_cross_entropy_with_logits(c1[idx_train], labels[idx_train].unsqueeze(1).float().to(device))/2
         l4 = F.binary_cross_entropy_with_logits(c2[idx_train], labels[idx_train].unsqueeze(1).float().to(device))/2
 
-        cl_loss = (1-sim_coeff)*(l3+l4)
+        cl_loss = (1-args.sim_coeff)*(l3+l4)
         cl_loss.backward()
         optimizer_2.step()
         loss = (sim_loss/rep + cl_loss)

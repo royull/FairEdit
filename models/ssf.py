@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, GATConv, GINConv, SAGEConv, DeepGraphInfomax, JumpingKnowledge
+from torch_geometric.nn import GCNConv, SAGEConv
 from aif360.sklearn.metrics import statistical_parity_difference as SPD
 from aif360.sklearn.metrics import equal_opportunity_difference as EOD
 
@@ -24,61 +24,12 @@ class Classifier(nn.Module):
 
 
 class GCN(nn.Module):
-    def __init__(self, nfeat, nhid, dropout=0.5):
+    def __init__(self, nfeat, nhid):
         super(GCN, self).__init__()
         self.gc1 = spectral_norm(GCNConv(nfeat, nhid))
 
     def forward(self, x, edge_index):
         x = self.gc1(x, edge_index)
-        return x
-
-
-class GIN(nn.Module):
-    def __init__(self, nfeat, nhid, dropout=0.5):
-        super(GIN, self).__init__()
-
-        self.mlp1 = nn.Sequential(
-            spectral_norm(nn.Linear(nfeat, nhid)),
-            nn.ReLU(),
-            nn.BatchNorm1d(nhid),
-            spectral_norm(nn.Linear(nhid, nhid)),
-        )
-        self.conv1 = GINConv(self.mlp1)
-
-    def forward(self, x, edge_index):
-        x = self.conv1(x, edge_index)
-        return x
-
-
-class JK(nn.Module):
-    def __init__(self, nfeat, nhid, dropout=0.5):
-        super(JK, self).__init__()
-        self.conv1 = spectral_norm(GCNConv(nfeat, nhid))
-        self.convx= spectral_norm(GCNConv(nhid, nhid))
-        self.jk = JumpingKnowledge(mode='max')
-        self.transition = nn.Sequential(
-            nn.ReLU(),
-        )
-
-        for m in self.modules():
-            self.weights_init(m)
-
-    def weights_init(self, m):
-        if isinstance(m, nn.Linear):
-            torch.nn.init.xavier_uniform_(m.weight.data)
-            if m.bias is not None:
-                m.bias.data.fill_(0.0)
-
-    def forward(self, x, edge_index):
-        xs = []
-        x = self.conv1(x, edge_index)
-        x = self.transition(x)
-        xs.append(x)
-        for _ in range(1):
-            x = self.convx(x, edge_index)
-            x = self.transition(x)
-            xs.append(x)
-        x = self.jk(xs)
         return x
 
 
@@ -135,25 +86,15 @@ class Encoder_DGI(nn.Module):
         return x
 
 
-class GraphInfoMax(nn.Module):
-    def __init__(self, enc_dgi):
-        super(GraphInfoMax, self).__init__()
-        self.dgi_model = DeepGraphInfomax(enc_dgi.hidden_ch, enc_dgi, enc_dgi.summary, enc_dgi.corruption)
-
-    def forward(self, x, edge_index):
-        pos_z, neg_z, summary = self.dgi_model(x, edge_index)
-        return pos_z
-
-
 class Encoder(torch.nn.Module):
     def __init__(self, in_channels: int, out_channels: int, 
                 base_model='gcn', k: int = 2):
         super(Encoder, self).__init__()
         self.base_model = base_model
-        if self.base_model == 'gcn':
-            self.conv = GCN(in_channels, out_channels)
+        if self.base_model == 'gcn': # should take nfeat and nhid
+            self.conv = GCN(nfeat=in_channels, nhid=out_channels)
         elif self.base_model == 'sage':
-            self.conv = SAGE(in_channels, out_channels)
+            self.conv = SAGE(nfeat=in_channels, nhid=out_channels, dropout=0.5)
         for m in self.modules():
             self.weights_init(m)
 

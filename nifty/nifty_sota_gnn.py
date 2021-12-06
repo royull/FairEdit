@@ -10,10 +10,11 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import warnings
-warnings.filterwarnings('ignore')
+#warnings.filterwarnings('ignore')
 
 from utils import *
-from nifty.models import *
+from models.gcn import *
+from models.ssf import *
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv
 from sklearn.metrics import f1_score, roc_auc_score
 from torch_geometric.utils import dropout_adj, convert

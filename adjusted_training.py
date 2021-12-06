@@ -11,6 +11,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import warnings
+from models.ssf import Encoder
 warnings.filterwarnings('ignore')
 
 from utils import *
@@ -37,8 +38,13 @@ def main():
 
         parser.add_argument('--model', type=str, default='gcn')
         parser.add_argument('--dataset', type=str, default='credit')
-        parser.add_argument('--training_method', type=str, default=None)
-
+        parser.add_argument('--training_method', type=str, default=None,
+                        choices=['standard','brute','fairedit','nifty'])
+        parser.add_argument('--epochs',type=int,default=300,help='Number of epochs to train.')
+        parser.add_argument('--lr', type=float, default=0.001,
+                        help='Initial learning rate.')
+        parser.add_argument('--weight_decay', type=float, default=1e-5,
+                        help='Weight decay (L2 loss on parameters).')
         args = parser.parse_known_args()[0]
         
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -147,17 +153,41 @@ def main():
                                                         features=features, edge_index=edge_index,
                                                         labels=labels, device=device, train_idx=idx_train,
                                                         val_idx=idx_val)
-                trainer.train(epochs=200) # moved up because training epochs are already incorporated into nifty
+                trainer.train(epochs=200) 
+                # moved up because training epochs are already incorporated into nifty
 
         elif args.training_method == 'nifty':  
-                acc, f1s, parity, equality = nifty(features=features,edge_index=edge_index,labels=labels,
-                device=device,sens=sens,sens_idx=sens_idx,idx_train=idx_train,idx_test=idx_test,idx_val=idx_val,
-                num_class=num_class,lr=lr,weight_decay=weight_decay,model=args.model, hidden=16,proj_hidden=16,
-                drop_edge_rate_1=0.001,drop_edge_rate_2=0.001,drop_feature_rate_1=0.1,
-                drop_feature_rate_2=0.1,sim_coeff=0.6,epochs=1000)
+                parser.add_argument('--hidden', type=int, default=16,help='Number of hidden units.')
+                parser.add_argument('--proj_hidden', type=int, default=16,
+                                help='Number of hidden units in the projection layer of encoder.')
+                parser.add_argument('--dropout', type=float, default=0.5,
+                                help='Dropout rate (1 - keep probability).')
+                parser.add_argument('--drop_edge_rate_1', type=float, default=0.1,
+                                help='drop edge for first augmented graph')
+                parser.add_argument('--drop_edge_rate_2', type=float, default=0.1,
+                                help='drop edge for second augmented graph')
+                parser.add_argument('--drop_feature_rate_1', type=float, default=0.1,
+                                help='drop feature for first augmented graph')
+                parser.add_argument('--drop_feature_rate_2', type=float, default=0.1,
+                                help='drop feature for second augmented graph')
+                parser.add_argument('--sim_coeff', type=float, default=0.5,
+                                help='regularization coeff for the self-supervised task')
+                parser.add_argument("--num_heads", type=int, default=1,
+                                help="number of hidden attention heads")
+                parser.add_argument("--num_out_heads", type=int, default=1,
+                                help="number of output attention heads")
+                parser.add_argument("--num_layers", type=int, default=2,
+                                help="number of hidden layers")
+                args = parser.parse_known_args()[0]
+
+                acc, f1s, parity, counterfactual_fairness = nifty(features=features,edge_index=edge_index,
+                labels=labels,device=device,sens=sens,sens_idx=sens_idx, idx_train=idx_train,idx_test=idx_test,
+                idx_val=idx_val,num_class=num_class,lr=args.lr,args=args)
         else:
                 print("Error: Training Method not provided")
                 exit(1)
+        
+        print(acc, f1s, parity, counterfactual_fairness)
 
 
 
