@@ -20,6 +20,7 @@ from models.sage import SAGE
 # from models.appnp import APPNP
 from training_methods.standard import standard_trainer
 from training_methods.brute_force import bf_trainer
+from training_methods.fair_edit import fair_edit_trainer
 from training_methods.nifty import nifty
 from torch_geometric.nn import GCNConv, SAGEConv, GINConv
 from torch_geometric.data import Data
