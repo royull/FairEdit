@@ -128,8 +128,9 @@ def main():
         #                 K=2, alpha=0.1, dropout=0.5)
 
         #### Set up training ####
-        lr = .01
-        weight_decay = 5e-4
+        ## lr and weight decay should take values passed
+        lr = .01 #args.lr
+        weight_decay = 5e-4 #args.weight_decay
         optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
         model = model.to(device)
 
