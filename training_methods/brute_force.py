@@ -83,10 +83,10 @@ class bf_trainer():
 #           Find the best edit
             if (epoch < self.numEdit):
                 for i in range(self.numNode):
-                    if i not in self.val_idx:
+                    if i not in self.train_idx:
                         continue
                     for j in range(i,self.numNode):
-                        if j not in self.val_idx:
+                        if j not in self.train_idx:
                             continue
                         # Sample every possible one-step edit, calc the counterfactuial fairness, record the best one
                         newGraph = flipAdj(self.edge_index,i,j,self.numNode)
