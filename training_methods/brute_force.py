@@ -30,7 +30,7 @@ def flipAdj(edge_idx: torch.Tensor,i,j,n):
 
 class bf_trainer():
     def __init__(self, sense_idx, numEdit, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
-                    labels=None, device=None, train_idx=None, val_idx=None, fair_metric = None):
+                    labels=None, device=None, train_idx=None, val_idx=None):
         self.model = model
         self.sense_idx = sense_idx # int, which attribute dimension is sensitive?
         self.numEdit = numEdit # number of edges that we plan to edit
@@ -70,18 +70,20 @@ class bf_trainer():
             loss_train.backward()
             self.optimizer.step()
 
+#           Later, just need inference
+            self.model.eval()
+
 #           Edit the training graph for the first numEdit steps
 #           Save the original graph as basis
-            self.model.eval()
-            top_fair_score = fair_metric(preds[self.train_idx],self.labels[self.train].unsqueeze(1).float().to(self.device))
-            output = self.model(self.features,self.edge_index.to(self.device))
-            preds = (output.squeeze()>0).type_as(self.labels)
-            counter_output = self.model(self.counter_features.to(self.device),self.edge_index.to(self.device))
-            counter_preds = (counter_output.squeeze()>0).type_as(self.labels)
-            top_fair_score = 1 - (preds.eq(counter_preds)[self.train_idx].sum().item()/self.train_idx.shape[0])
-            top_edit = self.features.clone()
-#           Find the best edit
             if (epoch < self.numEdit):
+                top_fair_score = fair_metric(preds[self.train_idx],self.labels[self.train].unsqueeze(1).float().to(self.device))
+                output = self.model(self.features,self.edge_index.to(self.device))
+                preds = (output.squeeze()>0).type_as(self.labels)
+                counter_output = self.model(self.counter_features.to(self.device),self.edge_index.to(self.device))
+                counter_preds = (counter_output.squeeze()>0).type_as(self.labels)
+                top_fair_score = 1 - (preds.eq(counter_preds)[self.train_idx].sum().item()/self.train_idx.shape[0])
+                top_edit = self.features.clone()
+#               Find the best edit
                 for i in range(self.numNode):
                     if i not in self.train_idx:
                         continue
