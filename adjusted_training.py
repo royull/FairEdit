@@ -83,7 +83,9 @@ def main():
                                                                                         label_number=label_number,
                                                                                         )
                 edge_index = convert.from_scipy_sparse_matrix(adj)[0]
-                
+                norm_features = feature_norm(features)
+                norm_features[:, sens_idx] = features[:, sens_idx]
+                features = norm_features
                 lr = .01
                 weight_decay = 5e-4
 

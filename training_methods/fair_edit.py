@@ -5,6 +5,9 @@ import torch.optim as optim
 from sklearn.metrics import f1_score, roc_auc_score
 from typing import Optional
 
+from scipy.sparse import coo_matrix
+from torch_geometric.utils import to_scipy_sparse_matrix, from_scipy_sparse_matrix, dropout_adj
+
 from math import sqrt
 from inspect import signature
 
@@ -99,7 +102,7 @@ class GNNExplainer(torch.nn.Module):
         x = x.log() if self.return_type == 'prob' else x
         return x
 
-    def explain_graph(self, x, edge_index, **kwargs):
+    def explain_graph(self, x, edge_index, perturbed_edge_index, **kwargs):
         r"""Learns and returns a node feature mask and an edge mask that play a
         crucial role to explain the prediction made by the GNN for a graph.
 
@@ -164,12 +167,36 @@ class fair_edit_trainer():
         self.train_idx = train_idx
         self.val_idx = val_idx
         self.edit_num = edit_num
+        self.perturbed_edge_index = None
+
+    def add_drop_edge_random(graph_edge_index,p=0.2,q=0.2):
+        """
+        Graph_edge_index: Enter Graph edge index
+        p: probability of drop edge
+        q: probability of add edge
+        returns: edge_index
+        """
+        graph_edge_index, _ = dropout_adj(graph_edge_index, p=p,force_undirected=True)
+        B = to_scipy_sparse_matrix(graph_edge_index)
+        b = B.toarray()
+        n = len(b)
+        for i in range(n):
+            s = np.random.uniform(0,1,n)
+            s = 1*(s<q)
+            b[:,i] = np.maximum(s,b[:,i])
+            b[i,:] = np.maximum(s,b[i,:])
+            b[i,i] = 0
+        temp = coo_matrix(b)
+        temp, _ = from_scipy_sparse_matrix(temp)
+
+        return temp
 
     def fair_graph_edit(self):
         
         grad_gen = GNNExplainer(self.model)
 
-        edge_mask = grad_gen.explain_graph(self.features, self.edge_index)
+        self.perturbed_edge_index = self.add_drop_edge_random(self.edge_index)
+        edge_mask = grad_gen.explain_graph(self.features, self.edge_index, self.perturbed_edge_index)
         edge_index = torch.argmax(edge_mask)
         print(type(self.edge_index))
 
@@ -196,8 +223,6 @@ class fair_edit_trainer():
 
             loss_train.backward()
             self.optimizer.step()
-
-       
             
             # Evaluate validation set performance separately,
             self.model.eval()
