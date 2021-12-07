@@ -2,7 +2,9 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from sklearn.metrics import f1_score, roc_auc_score
+from scipy.sparse import coo_matrix
 import numpy as np
+from torch_geometric.utils import convert
 
 def fair_metric(pred, labels, sens):
     idx_s0 = sens==0
@@ -13,10 +15,27 @@ def fair_metric(pred, labels, sens):
     equality = abs(sum(pred[idx_s0_y1])/sum(idx_s0_y1)-sum(pred[idx_s1_y1])/sum(idx_s1_y1))
     return parity.item(), equality.item()
 
-def flipAdj(edge_idx: torch.Tensor,i,j):
-    # edge_idx : torch_tensor, shape [n,2]. n = num of existing edges
-    t_edge_idx = edge_idx.clone()
-    return
+def flipAdj(edge_idx: torch.Tensor,i,j,n):
+    # TODO: check if it's efficient enough
+
+    # i,j : edit idx
+    # n, num of node in graph
+    # edge_idx : torch_tensor, shape [m,2]. m = num of existing edges
+
+    # restore the sparse mat
+    data = np.ones(edge_idx.shape[1])
+    t_mat = coo_matrix((data,edge_idx.numpy()),shape=(n,n)).tocsr()
+
+    # flip 
+    if (t_mat[i,j] == 0):
+        t_mat[i,j] = 1.
+        t_mat[j,i] = 1.
+    else:
+        t_mat[i,j] = 0.
+        t_mat[j,i] = 0.
+
+    # Change back
+    return convert.from_scipy_sparse_matrix(t_mat)[0]
 
 class bf_trainer():
     def __init__(self, sense_idx, numEdit, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
@@ -96,7 +115,7 @@ class bf_trainer():
                         if j not in self.val_idx:
                             continue
                         # Sample every possible one-step edit, record the best one
-                        newGraph = flipAdj(self.edge_index,i,j)
+                        newGraph = flipAdj(self.edge_index,i,j,self.numNode)
                         t_output = self.model(self.features,newGraph)
                         t_preds = (t_output.squeeze()>0).type_as(self.labels)
                         t_fair_score = fair_metric(t_preds[self.train_idx],self.labels[self.train].unsqueeze(1).float().to(self.device))
@@ -104,6 +123,7 @@ class bf_trainer():
                             top_fair_score = t_fair_score
                             top_edit = newGraph
                 # Then replace the original with this edit
+                #   notice that we only do edit on train_idx, therefore having no effect on val_idx
                 self.features = top_edit
 
 #           Evaluate validation set performance separately,
@@ -115,6 +135,7 @@ class bf_trainer():
             auc_roc_val = roc_auc_score(self.labels.cpu().numpy()[self.val_idx ], output.detach().cpu().numpy()[self.val_idx ])
             f1_val = f1_score(self.labels[self.val_idx ].cpu().numpy(), preds[self.val_idx ].cpu().numpy())
 
+#           Record the best model 
             if loss_val.item() < best_loss:
                 best_loss = loss_val.item()
                 torch.save(self.model.state_dict(), 'results/weights/{0}_{1}_{2}.pt'.format(self.model_name, 'bruteforce', self.dataset))
