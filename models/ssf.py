@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, SAGEConv
+from torch_geometric.nn import APPNP as APPNP_base
 from aif360.sklearn.metrics import statistical_parity_difference as SPD
 from aif360.sklearn.metrics import equal_opportunity_difference as EOD
 
@@ -64,6 +65,28 @@ class SAGE(nn.Module):
         x = self.conv2(x, edge_index)
         return x
 
+class APPNP(torch.nn.Module):
+    def __init__(self, nfeat, nhid, nclass, K=2, alpha=0.1, dropout=0.5):
+        super(APPNP, self).__init__()
+        self.model_name = 'appnp'
+
+        self.lin1 = torch.nn.Linear(nfeat, nhid)
+        self.lin2 = torch.nn.Linear(nhid, nclass)
+        self.prop1 = APPNP_base(K, alpha)
+        self.dropout = dropout
+
+    def reset_parameters(self):
+        self.prop1.reset_parameters()
+
+    def forward(self, x, edge_index):
+
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = F.relu(self.lin1(x))
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.lin2(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
+        x = self.prop1(x, edge_index)
+        return x
 
 class Encoder_DGI(nn.Module):
     def __init__(self, nfeat, nhid):
@@ -95,6 +118,9 @@ class Encoder(torch.nn.Module):
             self.conv = GCN(nfeat=in_channels, nhid=out_channels)
         elif self.base_model == 'sage':
             self.conv = SAGE(nfeat=in_channels, nhid=out_channels, dropout=0.5)
+        elif self.base_model == 'appnp':
+            self.conv = APPNP(nfeat=in_channels,nhid=out_channels)
+        
         for m in self.modules():
             self.weights_init(m)
 
