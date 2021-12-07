@@ -9,6 +9,7 @@ Use the environment.yml to find the associated packages and versions.
 Example data loaders can be found in data_loader_example.py 
 
 Can be run by passing in an argument denoting the data set to load, such as data_loader_example.py -dataset credit
+
 Note for the above command to work the first line in the for loop has to be commented
 
 # Models
