@@ -34,7 +34,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Load credit_scoring dataset
 for dataset_name in ['german', 'bail', 'credit']:
-    args.dataset = dataset_name
+    args.dataset = dataset_name #This line should be commented
     if args.dataset == 'credit':
         sens_attr = "Age"  # column number after feature process is 1
         sens_idx = 1

@@ -10,6 +10,8 @@ Example data loaders can be found in data_loader_example.py
 
 Can be run by passing in an argument denoting the data set to load, such as data_loader_example.py -dataset credit
 
+Note for the above command to work the first line in the for loop has to be commented
+
 # Models
 
 Folder models holds the various architectures. Examples to load, train, and evaluate can be found in run_models.py. Run_models.py has a lot of possible arguments, here as an example to run:
@@ -28,6 +30,7 @@ python comparison_training.py --dropout 0.5 --hidden 16 --lr 1e-3 --epochs 1000 
 
 where --model can be ['fairgnn', 'fairwalk'] and --dataset can be ['german', 'credit', 'bail'] 
 
+> Note: Updated in ```adjusted_training.py```, try this one!
 
 # To perform various types of training, code can be found in the training_methods folder
 

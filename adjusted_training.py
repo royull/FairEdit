@@ -83,7 +83,9 @@ def main():
                                                                                         label_number=label_number,
                                                                                         )
                 edge_index = convert.from_scipy_sparse_matrix(adj)[0]
-                
+                norm_features = feature_norm(features)
+                norm_features[:, sens_idx] = features[:, sens_idx]
+                features = norm_features
                 lr = .01
                 weight_decay = 5e-4
 
@@ -104,6 +106,7 @@ def main():
 
         edge_index = convert.from_scipy_sparse_matrix(adj)[0]
         num_class = labels.unique().shape[0]-1
+        print(edge_index)
 
         #### Load Models ####
         if args.model == 'gcn':
@@ -133,9 +136,6 @@ def main():
         features = features.to(device)
         edge_index = edge_index.to(device)
         labels = labels.to(device)
-
-        print("here")
-        print(edge_index.shape)
         trainer = None
         if args.training_method in ['standard','brute','fairedit']:
                 if args.training_method == 'standard':   
@@ -189,7 +189,4 @@ def main():
                 exit(1)
         
         print(acc, f1s, parity, counterfactual_fairness)
-
-
-
 main()
