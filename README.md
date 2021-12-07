@@ -30,6 +30,7 @@ python comparison_training.py --dropout 0.5 --hidden 16 --lr 1e-3 --epochs 1000 
 
 where --model can be ['fairgnn', 'fairwalk'] and --dataset can be ['german', 'credit', 'bail'] 
 
+> Note: Updated in ```adjusted_training.py```, try this one!
 
 # To perform various types of training, code can be found in the training_methods folder
 

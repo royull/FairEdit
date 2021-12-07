@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 from sklearn.metrics import f1_score, roc_auc_score
+import numpy as np
 
 def fair_metric(pred, labels, sens):
     idx_s0 = sens==0
@@ -12,11 +13,17 @@ def fair_metric(pred, labels, sens):
     equality = abs(sum(pred[idx_s0_y1])/sum(idx_s0_y1)-sum(pred[idx_s1_y1])/sum(idx_s1_y1))
     return parity.item(), equality.item()
 
+def flipAdj(edge_idx: torch.Tensor,i,j):
+    # edge_idx : torch_tensor, shape [n,2]. n = num of existing edges
+    t_edge_idx = edge_idx.clone()
+    return
+
 class bf_trainer():
-    def __init__(self, sense_idx,model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
+    def __init__(self, sense_idx, numEdit, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
                     labels=None, device=None, train_idx=None, val_idx=None, fair_metric = None):
         self.model = model
         self.sense_idx = sense_idx # int, which attribute dimension is sensitive?
+        self.numEdit = numEdit # number of edges that we plan to edit
         self.model_name = model.model_name
         self.dataset = dataset
         self.optimizer = optimizer
@@ -26,6 +33,7 @@ class bf_trainer():
         self.device = device
         self.train_idx = train_idx
         self.val_idx = val_idx
+        self.numNode = features.shape[0]
     
 
     def Compute_Fair(self):
@@ -62,23 +70,45 @@ class bf_trainer():
         for epoch in range(epochs):
             ## TODO: Perform a search over all edge edits within each neighborhood of a node to find one that helps fairness
             # You will need to bring over the fairness metrics (make it be able to use any metric we choose) and then brute force search 
+
+#           One normal step in training
             self.model.train()
             self.optimizer.zero_grad()
             output = self.model(self.features, self.edge_index)
-
             # Binary Cross-Entropy  
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_train = F.binary_cross_entropy_with_logits(output[self.train_idx], self.labels[self.train_idx].unsqueeze(1).float().to(self.device))
-
             auc_roc_train = roc_auc_score(self.labels.cpu().numpy()[self.train_idx], output.detach().cpu().numpy()[self.train_idx])
             loss_train.backward()
             self.optimizer.step()
 
-            # Evaluate validation set performance separately,
+#           Edit the training graph for the first numEdit steps
+#           Save the original graph as basis
             self.model.eval()
-            output = self.model(self.features, self.edge_index)
+            top_fair_score = fair_metric(preds[self.train_idx],self.labels[self.train].unsqueeze(1).float().to(self.device))
+            top_edit = self.features.clone()
+#           Find the best edit
+            if (epoch < self.numEdit):
+                for i in range(self.numNode):
+                    if i not in self.val_idx:
+                        continue
+                    for j in range(i,self.numNode):
+                        if j not in self.val_idx:
+                            continue
+                        # Sample every possible one-step edit, record the best one
+                        newGraph = flipAdj(self.edge_index,i,j)
+                        t_output = self.model(self.features,newGraph)
+                        t_preds = (t_output.squeeze()>0).type_as(self.labels)
+                        t_fair_score = fair_metric(t_preds[self.train_idx],self.labels[self.train].unsqueeze(1).float().to(self.device))
+                        if (t_fair_score > top_fair_score):
+                            top_fair_score = t_fair_score
+                            top_edit = newGraph
+                # Then replace the original with this edit
+                self.features = top_edit
 
-            # Binary Cross-Entropy
+#           Evaluate validation set performance separately,
+            output = self.model(self.features, self.edge_index)
+             # Binary Cross-Entropy
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_val = F.binary_cross_entropy_with_logits(output[self.val_idx ], self.labels[self.val_idx ].unsqueeze(1).float().to(self.device))
 
