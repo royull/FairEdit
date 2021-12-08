@@ -16,7 +16,7 @@ Note for the above command to work the first line in the for loop has to be comm
 
 Folder models holds the various architectures. Examples to load, train, and evaluate can be found in run_models.py. Run_models.py has a lot of possible arguments, here as an example to run:
 
-python run_models.py --dropout 0.5 --hidden 16 --lr 1e-3 --epochs 1000 --model gcn --dataset german --seed 1
+python adjusted_model.py --dropout 0.5 --hidden 16 --lr 1e-3 --epochs 1000 --model gcn --dataset german --seed 1
 
 where --model can be ['gcn', 'sage'] and --dataset can be ['german', 'credit', 'bail'] 
 
