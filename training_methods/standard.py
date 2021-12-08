@@ -8,7 +8,7 @@ from utils import fair_metric
 
 class standard_trainer():
     def __init__(self, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
-                    labels=None, device=None, train_idx=None, val_idx=None):
+                    labels=None, device=None, train_idx=None, val_idx=None,sens=None):
         self.model = model
         self.model_name = model.model_name
         self.dataset = dataset
@@ -19,6 +19,7 @@ class standard_trainer():
         self.device = device
         self.train_idx = train_idx
         self.val_idx = val_idx
+        self.sens = sens
 
     def train(self, epochs=200):
 
@@ -46,11 +47,12 @@ class standard_trainer():
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_val = F.binary_cross_entropy_with_logits(output[self.val_idx ], self.labels[self.val_idx ].unsqueeze(1).float().to(self.device))
 
-            auc_roc_val = roc_auc_score(self.labels.cpu().numpy()[self.val_idx ], output.detach().cpu().numpy()[self.val_idx ])
-            f1_val = f1_score(self.labels[self.val_idx ].cpu().numpy(), preds[self.val_idx ].cpu().numpy())
-
             if loss_val.item() < best_loss:
                 best_loss = loss_val.item()
                 torch.save(self.model.state_dict(), 'results/weights/{0}_{1}_{2}.pt'.format(self.model_name, 'standard', self.dataset))
-            parity, equality = fair_metric(preds,self.labels,self.sens)
+            
+        auc_roc_val = roc_auc_score(self.labels.cpu().numpy()[self.val_idx ], output.detach().cpu().numpy()[self.val_idx ])
+        f1_val = f1_score(self.labels[self.val_idx ].cpu().numpy(), preds[self.val_idx ].cpu().numpy())
+        parity, equality = fair_metric(preds,self.labels,self.sens)
+
         return auc_roc_val,f1_val,parity,equality
