@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore')
 from utils import *
 from models.gcn import GCN
 from models.sage import SAGE
-# from models.appnp import APPNP
+from models.appnp import APPNP
 from training_methods.standard import standard_trainer
 from training_methods.brute_force import bf_trainer
 from training_methods.fair_edit import fair_edit_trainer
@@ -121,11 +121,11 @@ def main():
                         nclass=num_class,
                         dropout=0.5)
         
-        # elif args.model == 'appnp':
-        #         model = APPNP(nfeat=features.shape[1],
-        #                 nhid=64,
-        #                 nclass=num_class,
-        #                 K=2, alpha=0.1, dropout=0.5)
+        elif args.model == 'appnp':
+                 model = APPNP(nfeat=features.shape[1],
+                         nhid=64,
+                         nclass=num_class,
+                         K=2, alpha=0.1, dropout=0.5)
 
         #### Set up training ####
         lr = .01
@@ -156,7 +156,7 @@ def main():
                                                         val_idx=idx_val)
                 trainer.train(epochs=200) 
                 # moved up because training epochs are already incorporated into nifty
-
+                
         elif args.training_method == 'nifty':  
                 parser.add_argument('--hidden', type=int, default=16,help='Number of hidden units.')
                 parser.add_argument('--proj_hidden', type=int, default=16,
