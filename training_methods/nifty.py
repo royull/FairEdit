@@ -57,7 +57,7 @@ def ssf_validation(model, x_1, edge_index_1, x_2, edge_index_2, y,idx_val,device
 
 def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx_val,num_class,lr,weight_decay,args):
     '''
-    Main Function for NIFTY. Choose 'encode' to be 'gcn' or 'sage' to comply with training.
+    Main Function for NIFTY. Choose 'encode' to be 'gcn' or 'sage' or 'appnp' to comply with training.
     Input: listed above. Mostly from args. Some additional been set default value.
     Output: accuracy, f1, parity, counterfactual fairness
     '''
@@ -145,9 +145,9 @@ def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx
         if (val_c_loss + val_s_loss) < best_loss:
             # print(f'{epoch} | {val_s_loss:.4f} | {val_c_loss:.4f}')
             best_loss = val_c_loss + val_s_loss
-            torch.save(model.state_dict(), f'weights_ssf_{encoder_model}.pt')
+            torch.save(model.state_dict(), f'weights_ssf_{args.model}.pt')
 
-    model.load_state_dict(torch.load(f'weights_ssf_{encoder_model}.pt'))
+    model.load_state_dict(torch.load(f'weights_ssf_{args.model}.pt'))
     model.eval()
     emb = model(features.to(device), edge_index.to(device))
     output = model.predict(emb)
