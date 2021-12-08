@@ -42,7 +42,7 @@ def main():
         parser.add_argument('--training_method', type=str, default=None,
                         choices=['standard','brute','fairedit','nifty'])
         parser.add_argument('--epochs',type=int,default=300,help='Number of epochs to train.')
-        parser.add_argument('--lr', type=float, default=0.001,
+        parser.add_argument('--lr', type=float, default=0.01,
                         help='Initial learning rate.')
         parser.add_argument('--weight_decay', type=float, default=1e-5,
                         help='Weight decay (L2 loss on parameters).')
@@ -155,9 +155,9 @@ def main():
                                                         features=features, edge_index=edge_index,
                                                         labels=labels, device=device, train_idx=idx_train,
                                                         val_idx=idx_val)
-                acc,f1s = trainer.train(epochs=200) 
+                acc,f1s,parity,equality = trainer.train(epochs=200) 
                 # moved up because training epochs are already incorporated into nifty
-                print(acc,f1s)
+                print(acc,f1s,parity,equality)
         elif args.training_method == 'nifty':  
                 parser.add_argument('--hidden', type=int, default=16,help='Number of hidden units.')
                 parser.add_argument('--proj_hidden', type=int, default=16,
@@ -185,9 +185,9 @@ def main():
                 acc, f1s, parity, counterfactual_fairness = nifty(features=features,edge_index=edge_index,
                 labels=labels,device=device,sens=sens,sens_idx=sens_idx, idx_train=idx_train,idx_test=idx_test,
                 idx_val=idx_val,num_class=num_class,lr=args.lr,args=args)
+                print(acc, f1s, parity, counterfactual_fairness)
         else:
                 print("Error: Training Method not provided")
                 exit(1)
-        
-        #print(acc, f1s, parity, counterfactual_fairness)
+
 main()

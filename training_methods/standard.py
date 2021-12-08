@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 from sklearn.metrics import f1_score, roc_auc_score
 
+from utils import fair_metric
+
 class standard_trainer():
     def __init__(self, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
                     labels=None, device=None, train_idx=None, val_idx=None):
@@ -50,5 +52,5 @@ class standard_trainer():
             if loss_val.item() < best_loss:
                 best_loss = loss_val.item()
                 torch.save(self.model.state_dict(), 'results/weights/{0}_{1}_{2}.pt'.format(self.model_name, 'standard', self.dataset))
-            
-        return auc_roc_val,f1_val
+            parity, equality = fair_metric(preds,self.labels,self.sens)
+        return auc_roc_val,f1_val,parity,equality
