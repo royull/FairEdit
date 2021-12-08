@@ -50,4 +50,5 @@ class standard_trainer():
             if loss_val.item() < best_loss:
                 best_loss = loss_val.item()
                 torch.save(self.model.state_dict(), 'results/weights/{0}_{1}_{2}.pt'.format(self.model_name, 'standard', self.dataset))
-
+            
+        return auc_roc_val,f1_val

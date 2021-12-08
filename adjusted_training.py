@@ -155,9 +155,9 @@ def main():
                                                         features=features, edge_index=edge_index,
                                                         labels=labels, device=device, train_idx=idx_train,
                                                         val_idx=idx_val)
-                trainer.train(epochs=200) 
+                acc,f1s = trainer.train(epochs=200) 
                 # moved up because training epochs are already incorporated into nifty
-                
+                print(acc,f1s)
         elif args.training_method == 'nifty':  
                 parser.add_argument('--hidden', type=int, default=16,help='Number of hidden units.')
                 parser.add_argument('--proj_hidden', type=int, default=16,
@@ -189,5 +189,5 @@ def main():
                 print("Error: Training Method not provided")
                 exit(1)
         
-        print(acc, f1s, parity, counterfactual_fairness)
+        #print(acc, f1s, parity, counterfactual_fairness)
 main()
