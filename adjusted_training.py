@@ -106,7 +106,6 @@ def main():
 
         edge_index = convert.from_scipy_sparse_matrix(adj)[0]
         num_class = labels.unique().shape[0]-1
-        print(edge_index)
 
         #### Load Models ####
         if args.model == 'gcn':
@@ -140,7 +139,7 @@ def main():
         trainer = None
         if args.training_method in ['standard','brute','fairedit']:
                 if args.training_method == 'standard':   
-                        trainer = standard_trainer(model=model, dataset=args.dataset, optimizer=optimizer, 
+                        trainer = standard_trainer(model=model,sense_idx = sens_idx, dataset=args.dataset, optimizer=optimizer, 
                                                         features=features, edge_index=edge_index, 
                                                         labels=labels, device=device, train_idx=idx_train, 
                                                         val_idx=idx_val,sens=sens)
