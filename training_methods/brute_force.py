@@ -85,15 +85,20 @@ class bf_trainer():
                 counter_output = self.model(self.counter_features.to(self.device),self.edge_index.to(self.device))
                 counter_preds = (counter_output.squeeze()>0).type_as(self.labels)
                 # print(counter_preds)
+                # print(preds.eq(counter_preds)[self.train_idx])
+                # print(self.train_idx.shape)
+                # exit()
                 top_fair_score = 1 - (preds.eq(counter_preds)[self.train_idx].sum().item()/self.train_idx.shape[0])
-                top_edit = self.features.clone()
+                top_edit = self.edge_index.clone()
                 print("Original Fair Score: ", top_fair_score)
+                # NOTE: the lower the better
 #               Find the best edit
                 Num_All = self.numNode*self.numNode
                 for i in range(self.numNode):
                     if i not in self.train_idx:
                         continue
                     for j in range(i,self.numNode):
+                    # for j in range(i,self.numNode):
                         if j not in self.train_idx:
                             continue
                         # Sample every possible one-step edit, calc the counterfactuial fairness, record the best one
@@ -104,12 +109,12 @@ class bf_trainer():
                         t_counter_preds = (t_counter_output.squeeze()>0).type_as(self.labels)
                         t_fair_score = 1 - (t_preds.eq(t_counter_preds)[self.train_idx].sum().item()/self.train_idx.shape[0])
                         print("Edit ({},{}), score: {}".format(i,j,t_fair_score))
-                        if (t_fair_score > top_fair_score):
+                        if (t_fair_score < top_fair_score):
                             top_fair_score = t_fair_score
                             top_edit = newGraph
                 # Then replace the original with this edit
                 #   notice that we only do edit on train_idx, therefore having no effect on val_idx
-                self.features = top_edit
+                self.edge_index = top_edit.to(self.device)
 
 #           Evaluate validation set performance separately,
             output = self.model(self.features, self.edge_index)
@@ -121,7 +126,7 @@ class bf_trainer():
             f1_val = f1_score(self.labels[self.val_idx ].cpu().numpy(), preds[self.val_idx ].cpu().numpy())
             counter_output = self.model(self.counter_features.to(self.device),self.edge_index.to(self.device))
             counter_preds = (counter_output.squeeze()>0).type_as(self.labels)
-            fair_score = 1 - (preds.eq(counter_preds)[self.val_idx].sum().item()/self.train_idx.shape[0])
+            fair_score = 1 - (preds.eq(counter_preds)[self.val_idx].sum().item()/self.val_idx.shape[0])
             print("== f1: {} fair: {}".format(f1_val,fair_score))
 
 #           Record the best model 

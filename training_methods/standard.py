@@ -7,7 +7,7 @@ from sklearn.metrics import f1_score, roc_auc_score
 from utils import fair_metric
 
 class standard_trainer():
-    def __init__(self, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
+    def __init__(self, sense_idx,model=None,  dataset=None, optimizer=None, features=None, edge_index=None, 
                     labels=None, device=None, train_idx=None, val_idx=None,sens=None):
         self.model = model
         self.model_name = model.model_name
@@ -20,6 +20,9 @@ class standard_trainer():
         self.train_idx = train_idx
         self.val_idx = val_idx
         self.sens = sens
+        counter_features = features.clone()
+        counter_features[:, sense_idx] = 1 - counter_features[:, sense_idx]
+        self.counter_features = counter_features
 
     def train(self, epochs=200):
 
@@ -27,6 +30,7 @@ class standard_trainer():
         best_acc = 0
 
         for epoch in range(epochs):
+            print("===Training Epoch: ", epoch)
             self.model.train()
             self.optimizer.zero_grad()
             output = self.model(self.features, self.edge_index)
@@ -51,8 +55,15 @@ class standard_trainer():
                 best_loss = loss_val.item()
                 torch.save(self.model.state_dict(), 'results/weights/{0}_{1}_{2}.pt'.format(self.model_name, 'standard', self.dataset))
             
+            f1_val = f1_score(self.labels[self.val_idx ].cpu().numpy(), preds[self.val_idx ].cpu().numpy())
+            print(f1_val)
         auc_roc_val = roc_auc_score(self.labels.cpu().numpy()[self.val_idx ], output.detach().cpu().numpy()[self.val_idx ])
         f1_val = f1_score(self.labels[self.val_idx ].cpu().numpy(), preds[self.val_idx ].cpu().numpy())
-        parity, equality = fair_metric(preds,self.labels,self.sens)
+        # parity, equality = fair_metric(preds,self.labels,self.sens)
+        counter_output = self.model(self.counter_features.to(self.device),self.edge_index.to(self.device))
+        counter_preds = (counter_output.squeeze()>0).type_as(self.labels)
+        fair_score = 1 - (preds.eq(counter_preds)[self.val_idx].sum().item()/self.val_idx.shape[0])
+        print("== f1: {} fair: {}".format(f1_val,fair_score))
 
-        return auc_roc_val,f1_val,parity,equality
+        # return auc_roc_val,f1_val,parity,equality
+        return auc_roc_val,f1_val,1,1
