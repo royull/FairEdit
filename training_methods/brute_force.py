@@ -15,9 +15,9 @@ def flipAdj(edge_idx: torch.Tensor,i,j,n):
 
     # restore the sparse mat
     data = np.ones(edge_idx.shape[1])
-    t_mat = coo_matrix((data,edge_idx.numpy()),shape=(n,n)).tocsr()
+    t_mat = coo_matrix((data,edge_idx.cpu().numpy()),shape=(n,n)).tocsr()
 
-    # flip 
+    # flip
     if (t_mat[i,j] == 0):
         t_mat[i,j] = 1.
         t_mat[j,i] = 1.
@@ -56,6 +56,7 @@ class bf_trainer():
         best_acc = 0
 
         for epoch in range(epochs):
+            print("===Training Epoch: ", epoch)
             ## TODO: Perform a search over all edge edits within each neighborhood of a node to find one that helps fairness
             # You will need to bring over the fairness metrics (make it be able to use any metric we choose) and then brute force search 
 
@@ -75,15 +76,20 @@ class bf_trainer():
 
 #           Edit the training graph for the first numEdit steps
 #           Save the original graph as basis
-            if (epoch < self.numEdit):
-                top_fair_score = fair_metric(preds[self.train_idx],self.labels[self.train].unsqueeze(1).float().to(self.device))
+            wait = 100
+            if (wait < epoch and epoch < wait + self.numEdit):
+                print("==Try Graph Edit")
                 output = self.model(self.features,self.edge_index.to(self.device))
                 preds = (output.squeeze()>0).type_as(self.labels)
+                # print(preds)
                 counter_output = self.model(self.counter_features.to(self.device),self.edge_index.to(self.device))
                 counter_preds = (counter_output.squeeze()>0).type_as(self.labels)
+                # print(counter_preds)
                 top_fair_score = 1 - (preds.eq(counter_preds)[self.train_idx].sum().item()/self.train_idx.shape[0])
                 top_edit = self.features.clone()
+                print("Original Fair Score: ", top_fair_score)
 #               Find the best edit
+                Num_All = self.numNode*self.numNode
                 for i in range(self.numNode):
                     if i not in self.train_idx:
                         continue
@@ -97,6 +103,7 @@ class bf_trainer():
                         t_counter_output = self.model(self.counter_features.to(self.device),newGraph.to(self.device))
                         t_counter_preds = (t_counter_output.squeeze()>0).type_as(self.labels)
                         t_fair_score = 1 - (t_preds.eq(t_counter_preds)[self.train_idx].sum().item()/self.train_idx.shape[0])
+                        print("Edit ({},{}), score: {}".format(i,j,t_fair_score))
                         if (t_fair_score > top_fair_score):
                             top_fair_score = t_fair_score
                             top_edit = newGraph
@@ -115,7 +122,7 @@ class bf_trainer():
             counter_output = self.model(self.counter_features.to(self.device),self.edge_index.to(self.device))
             counter_preds = (counter_output.squeeze()>0).type_as(self.labels)
             fair_score = 1 - (preds.eq(counter_preds)[self.val_idx].sum().item()/self.train_idx.shape[0])
-
+            print("== f1: {} fair: {}".format(f1_val,fair_score))
 
 #           Record the best model 
             if loss_val.item() < best_loss:
