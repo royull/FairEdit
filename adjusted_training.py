@@ -181,10 +181,10 @@ def main():
                 parser.add_argument("--num_layers", type=int, default=2,
                                 help="number of hidden layers")
                 args = parser.parse_known_args()[0]
-
+                print(features.shape[1],args.hidden)
                 acc, f1s, parity, counterfactual_fairness = nifty(features=features,edge_index=edge_index,
                 labels=labels,device=device,sens=sens,sens_idx=sens_idx, idx_train=idx_train,idx_test=idx_test,
-                idx_val=idx_val,num_class=num_class,lr=args.lr,args=args)
+                idx_val=idx_val,num_class=num_class,lr=args.lr,weight_decay=args.weight_decay,args=args)
                 print(acc, f1s, parity, counterfactual_fairness)
         else:
                 print("Error: Training Method not provided")
