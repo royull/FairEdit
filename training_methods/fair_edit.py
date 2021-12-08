@@ -14,7 +14,7 @@ from inspect import signature
 from tqdm import tqdm
 from torch_geometric.data import Data, Batch
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import k_hop_subgraph, to_networkx
+from torch_geometric.utils import k_hop_subgraph, to_networkx, sort_edge_index
 
 
 EPS = 1e-15
@@ -42,7 +42,7 @@ class GNNExplainer(torch.nn.Module):
 
     def __set_masks__(self, x, edge_index, perturbed_edge_index, init="normal"):
         (N, F) = x.size()
-        E, E_p = edge_index.size(), perturbed_edge_index.size(1)
+        E, E_p = edge_index.size(1), perturbed_edge_index.size(1)
         
         std = torch.nn.init.calculate_gain('relu') * sqrt(2.0 / (2 * N))
         self.edge_mask = torch.nn.Parameter(torch.randn(E) * std)
@@ -109,9 +109,9 @@ class GNNExplainer(torch.nn.Module):
         
         optimizer = torch.optim.Adam([self.edge_mask, self.perturbed_mask], lr=self.lr)
 
-        for epoch in range(0, 5):
+        for e in range(0, 2):
+            print('gnn_explainer: ' + str(e))
             optimizer.zero_grad()
-            print(edge_index.shape)
             out = self.model(x=x, edge_index=edge_index, **kwargs)
             out_p = self.model_p(x=x, edge_index=perturbed_edge_index, **kwargs)
           
@@ -130,66 +130,92 @@ class GNNExplainer(torch.nn.Module):
 
 class fair_edit_trainer():
     def __init__(self, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
-                    labels=None, device=None, train_idx=None, val_idx=None, edit_num=20):
+                    labels=None, device=None, train_idx=None, val_idx=None, sens_idx=None, edit_num=20):
         self.model = model
         self.model_name = model.model_name
         self.dataset = dataset
         self.optimizer = optimizer
         self.features = features
         self.edge_index = edge_index
+        self.edge_index_orign = copy.deepcopy(self.edge_index)
         self.labels = labels
         self.device = device
         self.train_idx = train_idx
         self.val_idx = val_idx
         self.edit_num = edit_num
         self.perturbed_edge_index = None
+        self.sens_idx = sens_idx
 
-    def add_drop_edge_random(self, graph_edge_index, p=0.1, q=0.1):
+    def add_drop_edge_random(self, graph_edge_index, p=0.001, q=0.0001):
         """
         Graph_edge_index: Enter Graph edge index
         p: probability of drop edge
         q: probability of add edge
         returns: edge_index
         """
-        graph_edge_index_d, _ = dropout_adj(graph_edge_index, p=p, force_undirected=True)
-        B = to_scipy_sparse_matrix(graph_edge_index_d)
+        self.sens_att = self.features[:, self.sens_idx]
+        sens_matrix = torch.outer(self.sens_att+1, self.sens_att+1)
+        sens_matrix = 1*(sens_matrix==2)
+        sens_matrix = torch.Tensor.numpy(sens_matrix)
+        B = to_scipy_sparse_matrix(graph_edge_index)
         b = B.toarray()
         n = len(b)
         for i in range(n):
+            #Add edge
             s = np.random.uniform(0,1,n)
             s = 1*(s<q)
-            b[:,i] = np.maximum(s,b[:,i])
-            b[i,:] = np.maximum(s,b[i,:])
+            b[:,i] = np.maximum(s*sens_matrix[:,i], b[:,i])
+            b[i,:] = np.maximum(s*sens_matrix[:,i], b[i,:])
             b[i,i] = 0
+            #Delete edge
+            s = np.random.uniform(0, 1, n)
+            s = 1 * (s > p)
+            b[:, i] = np.minimum((s + sens_matrix[:, i]), b[:, i])
+            b[i, :] = np.minimum((s + sens_matrix[:, i]), b[i, :])
+            b[i, i] = 0
         temp = coo_matrix(b)
-        temp, _ = from_scipy_sparse_matrix(temp)
+        edge_index = from_scipy_sparse_matrix(temp)[0]
 
         add_edges = np.array([1, 4, 5])
         deleted_edges = np.array([2, 3])
 
-        return temp, add_edges, deleted_edges
+        return edge_index, add_edges, deleted_edges
 
     def fair_graph_edit(self):
         
         grad_gen = GNNExplainer(self.model)
 
         self.perturbed_edge_index, add_edges, deleted_edges = self.add_drop_edge_random(self.edge_index)
+        print(self.edge_index.shape)
+        print(self.perturbed_edge_index.shape)
         edge_mask, perturbed_mask = grad_gen.explain_graph(self.features, self.edge_index, self.perturbed_edge_index)
         
-        added_grads = perturbed_mask[:, add_edges]
-        deleted_grads = edge_mask[:, deleted_edges]
-        
-        # TODO Figure out if argmin or argmax
-        best_add = torch.argmin(added_grads)
-        best_delete = torch.argmin(deleted_grads)
+        # TODO get added and deleted
+        added_grads = perturbed_mask[add_edges]
+        deleted_grads = edge_mask[deleted_edges]
+        print(deleted_grads)
+     
+        best_add_score = torch.max(added_grads)
+        best_add = torch.argmax(added_grads)
+        best_add = add_edges[best_add]
+        best_delete_score = torch.max(deleted_grads)
+        best_delete = torch.argmax(deleted_grads)
+        best_delete = deleted_edges[best_delete]
         
         # we want to add edge since better
-        if best_add < best_delete:
-            self.edge_index = torch.cat((self.edge_index, self.perturbed_edge_index[:, best_add]), axis=1)
+        if best_add_score < best_delete_score:
+            # add both directions since undirected graph
+            edge_nodes = self.perturbed_edge_index[:, best_add]
+            best_add_comp = torch.tensor([[edge_nodes[1]], [edge_nodes[0]]])
+            self.edge_index = torch.cat((self.edge_index, edge_nodes.view(2, 1), best_add_comp), axis=1)
         else: # delete
+            edge_nodes = self.edge_index[:, best_delete]
             self.edge_index = torch.cat((self.edge_index[:, :best_delete], self.edge_index[:, best_delete+1:]), axis=1)
-
-      
+            if edge_nodes[0] != edge_nodes[1]:
+                vals = (self.edge_index == torch.tensor([[edge_nodes[1]], [edge_nodes[0]]]))
+                sum = torch.sum(vals, dim=0)
+                col_idx = np.where(sum == 2)[0][0]
+                self.edge_index = torch.cat((self.edge_index[:, :col_idx], self.edge_index[:, col_idx+1:]), axis=1)
 
     def train(self, epochs=200):
 
@@ -200,7 +226,8 @@ class fair_edit_trainer():
             self.model.train()
             self.optimizer.zero_grad()
             output = self.model(self.features, self.edge_index)
-            print(epoch)
+            print('epoch: ' + str(epoch))
+            
             # Binary Cross-Entropy  
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_train = F.binary_cross_entropy_with_logits(output[self.train_idx], self.labels[self.train_idx].unsqueeze(1).float().to(self.device))
@@ -216,7 +243,7 @@ class fair_edit_trainer():
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_val = F.binary_cross_entropy_with_logits(output[self.val_idx ], self.labels[self.val_idx ].unsqueeze(1).float().to(self.device))
 
-            while epoch < self.edit_num:
+            if epoch < self.edit_num:
                 self.fair_graph_edit()
             
             if loss_val.item() < best_loss:

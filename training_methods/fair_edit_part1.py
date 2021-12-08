@@ -3,7 +3,7 @@ import torch
 from scipy.sparse import coo_matrix
 from torch_geometric.utils import to_scipy_sparse_matrix,from_scipy_sparse_matrix,dropout_adj
 
-def add_drop_edge_random(graph_edge_index,features,sens_idx,p=0.5,q=0.5):
+def add_drop_edge_random(graph_edge_index,features,sens_idx,p=0.1,q=0.1):
     """
     Graph_edge_index: Enter Graph edge index
     p: probability of drop edge

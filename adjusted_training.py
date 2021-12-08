@@ -154,7 +154,7 @@ def main():
                         trainer = fair_edit_trainer(model=model, dataset=args.dataset, optimizer=optimizer,
                                                         features=features, edge_index=edge_index,
                                                         labels=labels, device=device, train_idx=idx_train,
-                                                        val_idx=idx_val)
+                                                        val_idx=idx_val, sens_idx=sens_idx)
                 acc,f1s,parity,equality = trainer.train(epochs=200) 
                 # moved up because training epochs are already incorporated into nifty
                 print(acc,f1s,parity,equality)
