@@ -41,11 +41,14 @@ class GNNExplainer(torch.nn.Module):
         self.coeffs.update(kwargs)
 
     def __set_masks__(self, x, edge_index, perturbed_edge_index, init="normal"):
+        (N, F) = x.size()
         E, E_p = edge_index.size(), perturbed_edge_index.size(1)
         
         std = torch.nn.init.calculate_gain('relu') * sqrt(2.0 / (2 * N))
         self.edge_mask = torch.nn.Parameter(torch.randn(E) * std)
+        print(self.edge_mask.shape)
         self.perturbed_mask = torch.nn.Parameter(torch.randn(E_p) * std)
+        print(self.perturbed_mask.shape)
         for module in self.model.modules():
             if isinstance(module, MessagePassing):
                 module.__explain__ = True
@@ -108,6 +111,7 @@ class GNNExplainer(torch.nn.Module):
 
         for epoch in range(0, 5):
             optimizer.zero_grad()
+            print(edge_index.shape)
             out = self.model(x=x, edge_index=edge_index, **kwargs)
             out_p = self.model_p(x=x, edge_index=perturbed_edge_index, **kwargs)
           
@@ -147,8 +151,8 @@ class fair_edit_trainer():
         q: probability of add edge
         returns: edge_index
         """
-        graph_edge_index, _ = dropout_adj(graph_edge_index, p=p, force_undirected=True)
-        B = to_scipy_sparse_matrix(graph_edge_index)
+        graph_edge_index_d, _ = dropout_adj(graph_edge_index, p=p, force_undirected=True)
+        B = to_scipy_sparse_matrix(graph_edge_index_d)
         b = B.toarray()
         n = len(b)
         for i in range(n):
@@ -196,7 +200,7 @@ class fair_edit_trainer():
             self.model.train()
             self.optimizer.zero_grad()
             output = self.model(self.features, self.edge_index)
-
+            print(epoch)
             # Binary Cross-Entropy  
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_train = F.binary_cross_entropy_with_logits(output[self.train_idx], self.labels[self.train_idx].unsqueeze(1).float().to(self.device))
