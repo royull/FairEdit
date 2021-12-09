@@ -24,14 +24,13 @@ def add_drop_edge_random(graph_edge_index,features,sens_idx,p=0.1,q=0.1):
     s=s+s.T
     s=1*(s<2*q)
     b= np.maximum(s*sens_matrix,b)
-    b= np.maximum(s*sens_matrix,b)
     #b[i,i]=0
     #Delete edge
     s = np.random.uniform(0, 1, (n,n))
     s=s+s.T
     s = 1 * (s > 2*p)
     b = np.minimum((s + sens_matrix), b)
-    b = np.minimum((s + sens_matrix), b)
+    
     #b[i, i] = 0
     temp=coo_matrix(b)
     temp,_=from_scipy_sparse_matrix(temp)
