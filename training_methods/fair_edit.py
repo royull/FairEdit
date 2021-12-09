@@ -146,51 +146,66 @@ class fair_edit_trainer():
         self.perturbed_edge_index = None
         self.sens_idx = sens_idx
 
-    def add_drop_edge_random(self, graph_edge_index, p=0.001, q=0.0001):
+    def add_drop_edge_random(self, graph_edge_index, p=0.001,q=0.0001):
         """
         Graph_edge_index: Enter Graph edge index
         p: probability of drop edge
         q: probability of add edge
         returns: edge_index
         """
-        self.sens_att = self.features[:, self.sens_idx]
-        sens_matrix = torch.outer(self.sens_att+1, self.sens_att+1)
-        sens_matrix = 1*(sens_matrix==2)
-        sens_matrix = torch.Tensor.numpy(sens_matrix)
-        B = to_scipy_sparse_matrix(graph_edge_index)
-        b = B.toarray()
-        n = len(b)
-        for i in range(n):
-            #Add edge
-            s = np.random.uniform(0,1,n)
-            s = 1*(s<q)
-            b[:,i] = np.maximum(s*sens_matrix[:,i], b[:,i])
-            b[i,:] = np.maximum(s*sens_matrix[:,i], b[i,:])
-            b[i,i] = 0
-            #Delete edge
-            s = np.random.uniform(0, 1, n)
-            s = 1 * (s > p)
-            b[:, i] = np.minimum((s + sens_matrix[:, i]), b[:, i])
-            b[i, :] = np.minimum((s + sens_matrix[:, i]), b[i, :])
-            b[i, i] = 0
-        temp = coo_matrix(b)
-        edge_index = from_scipy_sparse_matrix(temp)[0]
+        # TODO: Can we speed this up at all?
+        sens_att=self.features[:, self.sens_idx]
+        sens_matrix=torch.outer(sens_att+1,sens_att+1)
+        sens_matrix=1*(sens_matrix==2)
+        sens_matrix=torch.Tensor.numpy(sens_matrix)
+        #graph_edge_index, _ = dropout_adj(graph_edge_index, p=p,force_undirected=True)
 
-        add_edges = np.array([1, 4, 5])
-        deleted_edges = np.array([2, 3])
+        B=to_scipy_sparse_matrix(graph_edge_index)
+        b=B.toarray()
+        n=len(b)
 
-        return edge_index, add_edges, deleted_edges
+        #Create Random variable
+        s = np.random.uniform(0, 1, (n, n))
+        s=s+s.T
+        s = 1 * (s < 2*q)
+        #Record edges added
+        same=((s * sens_matrix)+b)==2
+        edges_added =(s * sens_matrix)-1*same
+        #Add edge
+        b= np.maximum(s*sens_matrix,b)
+        b= np.maximum(s*sens_matrix,b)
+        #b[i,i]=0
+
+        # Create Random variable
+        s1 = np.random.uniform(0, 1, (n,n))
+        s1 = s1+s1.T
+        s1 = 1 * (s1 > 2*p)
+        # Record edges removed
+        #same1 = (s1 + sens_matrix + b )== 0
+        edges_removed = b*(-np.minimum(s1 + sens_matrix,1)+1)
+        #Delete edge
+        b = np.minimum((s1 + sens_matrix), b)
+        b = np.minimum((s1 + sens_matrix), b)
+        #b[i, i] = 0
+
+        temp=coo_matrix(b)
+        temp,_=from_scipy_sparse_matrix(temp)
+        
+        return temp,from_scipy_sparse_matrix(coo_matrix(edges_added))[0],from_scipy_sparse_matrix(coo_matrix(edges_removed))[0]
+
 
     def fair_graph_edit(self):
         
         grad_gen = GNNExplainer(self.model)
 
+        # TODO Can we make add/deleted edges indices, not the actual edges?
         self.perturbed_edge_index, add_edges, deleted_edges = self.add_drop_edge_random(self.edge_index)
-        print(self.edge_index.shape)
-        print(self.perturbed_edge_index.shape)
+        print(self.perturbed_edge_index)
+        print(add_edges)
+        sys.exit()
         edge_mask, perturbed_mask = grad_gen.explain_graph(self.features, self.edge_index, self.perturbed_edge_index)
         
-        # TODO get added and deleted
+        # TODO get added and deleted to index mask
         added_grads = perturbed_mask[add_edges]
         deleted_grads = edge_mask[deleted_edges]
         print(deleted_grads)
