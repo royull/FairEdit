@@ -6,6 +6,7 @@ from torch_geometric.data import Data
 from torch_geometric.utils import to_networkx
 import networkx as nx
 import matplotlib.pyplot as plt
+from ismember import ismember
 
 
 def add_drop_edge_random(graph_edge_index,features,sens_idx,p=0.5,q=0.5):
@@ -51,20 +52,15 @@ def add_drop_edge_random(graph_edge_index,features,sens_idx,p=0.5,q=0.5):
     temp,_=from_scipy_sparse_matrix(temp)
 
     return temp,from_scipy_sparse_matrix(coo_matrix(edges_added))[0],from_scipy_sparse_matrix(coo_matrix(edges_removed))[0]
-"""
+
 def edge_index_to_index1(edge_index,dropped_index):
     
     Description: edge_list: edge list of input original graph
                  dropped index: edge list dropped from edge_list
                  returns: list of index
     
-    idx = []
-
-    for i in range(dropped_index.shape[1]):
-        if i in edge_index:
-            idx=idx+[i]
-    return idx
-    """
+    ii,_=ismember(edge_index.T.tolist(), dropped_index.T.tolist(), 'rows')
+    return np.where(ii==True)
 
 def Graph_sdd_drop_sanity_check():
     edge_index = torch.tensor([[0, 1, 1, 2, 3, 0, 5, 1, 2, 4, 4, 5, 0, 5],
