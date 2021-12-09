@@ -18,19 +18,20 @@ def add_drop_edge_random(graph_edge_index,features,sens_idx,p=0.1,q=0.1):
     B=to_scipy_sparse_matrix(graph_edge_index)
     b=B.toarray()
     n=len(b)
-    for i in range(n):
-        #Add edge
-        s=np.random.uniform(0,1,n)
-        s=1*(s<q)
-        b[:,i]= np.maximum(s*sens_matrix[:,i],b[:,i])
-        b[i,:]= np.maximum(s*sens_matrix[:,i],b[i,:])
-        b[i,i]=0
-        #Delete edge
-        s = np.random.uniform(0, 1, n)
-        s = 1 * (s > p)
-        b[:, i] = np.minimum((s + sens_matrix[:, i]), b[:, i])
-        b[i, :] = np.minimum((s + sens_matrix[:, i]), b[i, :])
-        b[i, i] = 0
+
+    #Add edge
+    s=np.random.uniform(0,1,(n,n))
+    s=s+s.T
+    s=1*(s<2*q)
+    b= np.maximum(s*sens_matrix,b)
+    #b[i,i]=0
+    #Delete edge
+    s = np.random.uniform(0, 1, (n,n))
+    s=s+s.T
+    s = 1 * (s > 2*p)
+    b = np.minimum((s + sens_matrix), b)
+    
+    #b[i, i] = 0
     temp=coo_matrix(b)
     temp,_=from_scipy_sparse_matrix(temp)
 

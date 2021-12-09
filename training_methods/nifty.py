@@ -55,7 +55,7 @@ def ssf_validation(model, x_1, edge_index_1, x_2, edge_index_2, y,idx_val,device
 # Encoder output
 # model = ['gcn','sage']
 
-def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx_val,num_class,lr,weight_decay,args):
+def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx_val,num_class,lr,weight_decay,args,sim_coeff):
     '''
     Main Function for NIFTY. Choose 'encode' to be 'gcn' or 'sage' or 'appnp' to comply with training.
     Input: listed above. Mostly from args. Some additional been set default value.
@@ -133,7 +133,7 @@ def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx
 
         # Validation
         model.eval()
-        val_s_loss, val_c_loss = ssf_validation(model, val_x_1, val_edge_index_1, val_x_2, val_edge_index_2, labels)
+        val_s_loss, val_c_loss = ssf_validation(model, val_x_1, val_edge_index_1, val_x_2, val_edge_index_2, labels, idx_val, device, sim_coeff)
         emb = model(val_x_1, val_edge_index_1)
         output = model.predict(emb)
         preds = (output.squeeze()>0).type_as(labels)
