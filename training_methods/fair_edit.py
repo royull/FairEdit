@@ -197,14 +197,14 @@ class fair_edit_trainer():
 
 
     def edge_index_to_index1(edge_index,dropped_index):
-    """
-    Description: edge_list: edge list of input original graph
+        """
+        Description: edge_list: edge list of input original graph
                  dropped index: edge list dropped from edge_list
                  returns: list of index
-    """
+        """
 
-    ii,_=ismember(edge_index.T.tolist(), dropped_index.T.tolist(), 'rows')
-    return np.where(ii==True)
+        ii,_=ismember(edge_index.T.tolist(), dropped_index.T.tolist(), 'rows')
+        return np.where(ii==True)
 
     def fair_graph_edit(self):
         
