@@ -1,0 +1,81 @@
+import numpy as np
+import torch
+from scipy.sparse import coo_matrix
+from torch_geometric.utils import to_scipy_sparse_matrix, from_scipy_sparse_matrix, dropout_adj
+from torch_geometric.data import Data
+from torch_geometric.utils import to_networkx
+import networkx as nx
+import matplotlib.pyplot as plt
+from ismember import ismember
+
+
+def add_drop_edge_random_no_adj(graph_edge_index, features, sens_idx, p=0.5, q=0.5):
+    """
+    Graph_edge_index: Enter Graph edge index
+    p: probability of drop edge
+    q: probability of add edge
+    returns: edge_index
+    """
+    #delete edge
+
+    edge_list=graph_edge_index.T.tolist()
+    n = features.shape[0]
+    t=-1
+    deleted_idx=[]
+    for idx, edge in enumerate(edge_list):
+        s=np.random.uniform(0,1,1)
+        s=1*(s<p)
+        if s*(features[edge[0],sens_idx]==features[edge[1],sens_idx]).numpy()==1:
+            del edge_list[idx]
+            deleted_idx=deleted_idx+[idx+len(deleted_idx)]
+            #TODO: delete the opposite index as well
+            print("d_idx",deleted_idx)
+
+        if t!=edge[0]:
+
+            s1 = np.random.uniform(0, 1, n)
+            s1 = 1 * (s1 < q)
+            new_edge1=np.where(s1==1)
+            for i in new_edge1[0]:
+
+
+                    if features[edge[0],sens_idx]!=features[i,sens_idx]:
+                        if [edge[0],i] not in edge_list:
+                            edge_list=edge_list+[[edge[0],i]]+[[i,edge[0]]]
+
+            t=edge[0]
+
+    return torch.tensor(edge_list), deleted_idx
+
+
+def edge_index_to_index1(edge_index, dropped_index):
+    """
+    Description: edge_list: edge list of input original graph
+                 dropped index: edge list dropped from edge_list
+                 returns: list of index
+    """
+
+    ii, _ = ismember(edge_index.T.tolist(), dropped_index.T.tolist(), 'rows')
+
+    return np.where(ii == True)
+
+
+
+def Graph_sdd_drop_sanity_check():
+    edge_index = torch.tensor([[0, 1, 1, 2, 3, 0, 5, 1, 2, 4, 4, 5, 0, 5],
+                               [1, 0, 2, 1, 0, 3, 1, 5, 4, 2, 5, 4, 5, 0]], dtype=torch.long)
+    x = torch.tensor([[1], [0], [1], [1], [1], [0]], dtype=torch.float)
+    data = Data(x=x, edge_index=edge_index)
+
+    plt.figure(1)
+    plt.clf()
+    nx.draw(to_networkx(data, to_undirected=True), with_labels=True)
+
+    e, a, d = add_drop_edge_random(edge_index, x, 0, p=0.5, q=0.5)
+    data_e = Data(x=x, edge_index=e)
+
+    plt.figure(2)
+    plt.clf()
+    nx.draw(to_networkx(data_e, to_undirected=True), with_labels=True)
+    print("Add\n", a)
+    print("Drop\n", d)
