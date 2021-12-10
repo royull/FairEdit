@@ -5,9 +5,9 @@ from sklearn.metrics import f1_score, roc_auc_score
 from scipy.sparse import coo_matrix
 import numpy as np
 from torch_geometric.utils import convert
+from time import time
 
 def flipAdj(edge_idx: torch.Tensor,i,j,n):
-    # TODO: check if it's efficient enough
 
     # i,j : edit idx
     # n, num of node in graph
@@ -114,13 +114,17 @@ class bf_trainer():
                             if j not in self.train_idx:
                                 continue
                             # Sample every possible one-step edit, calc the counterfactuial fairness, record the best one
+                            t1 = time()
                             newGraph = flipAdj(self.edge_index,i,j,self.numNode)
                             t_output = self.model(self.features,newGraph.to(self.device))
                             t_preds = (t_output.squeeze()>0).type_as(self.labels)
                             t_counter_output = self.model(self.counter_features.to(self.device),newGraph.to(self.device))
                             t_counter_preds = (t_counter_output.squeeze()>0).type_as(self.labels)
                             t_fair_score = 1 - (t_preds.eq(t_counter_preds)[self.train_idx].sum().item()/self.train_idx.shape[0])
+                            t3 = time()
                             print("Edit ({},{}), score: {}".format(i,j,t_fair_score))
+                            print(t3-t1)
+                            print(len(self.train_idx))
                             if (t_fair_score < top_fair_score):
                                 top_fair_score = t_fair_score
                                 top_edit = newGraph
