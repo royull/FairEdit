@@ -25,7 +25,7 @@ from models.fairgnn.fairgnn import *
 from models.fairgnn.baseline_fairGNN import *
 
 
-def fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens, device):
+def fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens, device,sense_idx):
     model = FairGNN(nfeat = features.shape[1], args = args).to(device)
 
     from sklearn.metrics import accuracy_score,roc_auc_score,recall_score,f1_score
@@ -89,13 +89,12 @@ def fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens
     parity, equality = fair_metric(output_preds[idx_test].cpu().numpy(), labels[idx_test].cpu().numpy(), sens[idx_test].cpu().numpy())
     f1_s = f1_score(labels[idx_test].cpu().numpy(), output_preds[idx_test].cpu().numpy())
     # Add counter factual
-    sense_idx = 0
     counter_features = features.clone()
     counter_features[:, sense_idx] = 1 - counter_features[:, sense_idx]
     counter_output,_,_ = model(counter_features.to(device),edge_index.to(device))
     counter_preds = (counter_output.squeeze()>0).type_as(labels)
     counter_fair_score = 1 - (output_preds.eq(counter_preds)[idx_test].sum().item()/idx_test.shape[0])
     
-    return auc_roc_test, parity, equality, f1_s
+    return auc_roc_test, f1_s, parity, counter_fair_score, robustness_score
 
 
