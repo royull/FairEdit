@@ -92,7 +92,7 @@ def fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens
     sense_idx = 0
     counter_features = features.clone()
     counter_features[:, sense_idx] = 1 - counter_features[:, sense_idx]
-    counter_output = model(counter_features.to(device),edge_index.to(device))
+    counter_output,_,_ = model(counter_features.to(device),edge_index.to(device))
     counter_preds = (counter_output.squeeze()>0).type_as(labels)
     counter_fair_score = 1 - (output_preds.eq(counter_preds)[idx_test].sum().item()/idx_test.shape[0])
     
