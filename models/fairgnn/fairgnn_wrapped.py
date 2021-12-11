@@ -84,9 +84,17 @@ def fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens
     noisy_features = features.clone() + torch.ones(features.shape).normal_(0, 1).to(device)
     noisy_output, _, _ = model(noisy_features.to(device), edge_index.to(device))
     noisy_output_preds = (noisy_output.squeeze()>0).type_as(labels)
+    robustness_score = 1 - (output_preds.eq(noisy_output_preds)[idx_test].sum().item()/idx_test.shape[0])
     auc_roc_test = roc_auc_score(labels.cpu().numpy()[idx_test], output.detach().cpu().numpy()[idx_test])
     parity, equality = fair_metric(output_preds[idx_test].cpu().numpy(), labels[idx_test].cpu().numpy(), sens[idx_test].cpu().numpy())
     f1_s = f1_score(labels[idx_test].cpu().numpy(), output_preds[idx_test].cpu().numpy())
+    # Add counter factual
+    sense_idx = 0
+    counter_features = features.clone()
+    counter_features[:, sense_idx] = 1 - counter_features[:, sense_idx]
+    counter_output = model(counter_features.to(device),edge_index.to(device))
+    counter_preds = (counter_output.squeeze()>0).type_as(labels)
+    counter_fair_score = 1 - (output_preds.eq(counter_preds)[idx_test].sum().item()/idx_test.shape[0])
     
     return auc_roc_test, parity, equality, f1_s
 

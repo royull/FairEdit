@@ -22,6 +22,9 @@ def add_drop_edge_random(graph_edge_index,features,sens_idx,p=0.5,q=0.5):
     sens_matrix=torch.Tensor.numpy(sens_matrix)
     #graph_edge_index, _ = dropout_adj(graph_edge_index, p=p,force_undirected=True)
 
+    data = np.ones(graph_edge_index.shape[1])
+    B = coo_matrix((data,graph_edge_index.cpu().numpy()),shape=(n,n))
+
     B=to_scipy_sparse_matrix(graph_edge_index)
     b=B.toarray()
     n=len(b)
