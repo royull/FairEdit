@@ -1,0 +1,12 @@
+LICENSE
+README.md
+setup.py
+fairwalk/__init__.py
+fairwalk/edges.py
+fairwalk/fairwalk.py
+fairwalk/parallel.py
+fairwalk.egg-info/PKG-INFO
+fairwalk.egg-info/SOURCES.txt
+fairwalk.egg-info/dependency_links.txt
+fairwalk.egg-info/requires.txt
+fairwalk.egg-info/top_level.txt
