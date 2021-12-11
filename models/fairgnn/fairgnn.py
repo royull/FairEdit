@@ -1,9 +1,23 @@
 import torch.nn as nn
 import torch
 from models.gcn import *
+from models.sage import *
+from models.appnp import *
 from models.fairgnn.fgn_utils import *
 
-# FairGNN model (Use GCN only)
+def get_model(nfeat, args):
+    if args.model == "gcn":
+        model = GCN_Body(nfeat=nfeat,nhid=args.num_hidden,dropout=args.dropout)
+    elif args.model == "sage":
+        model = SAGE_Body(nfeat=nfeat,nhid=args.num_hidden,dropout=args.dropout)
+    elif args.model == "appnp":
+        model = APPNP_Body(nfeat=nfeat,nhid=args.num_hidden,dropout=args.dropout)
+    else:
+        print("Model not implement")
+        return
+    return model
+
+# FairGNN model
 
 class FairGNN(nn.Module):
 
@@ -12,8 +26,8 @@ class FairGNN(nn.Module):
 
         nhid = args.num_hidden
         dropout = args.dropout
-        self.estimator = GCN(nfeat,args.hidden,1,dropout)
-        self.GNN = GCN_Body(nfeat,args.num_hidden,args.dropout)
+        self.estimator = GCN(nfeat,args.hidden,dropout,1)
+        self.GNN = get_model(nfeat,args)
         self.classifier = nn.Linear(nhid,1)
         self.adv = nn.Linear(nhid,1)
 

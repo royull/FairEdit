@@ -18,7 +18,8 @@ from models.fairgnn.fairgnn_wrapped import fgn
 def main():
         parser = argparse.ArgumentParser()
 
-        parser.add_argument('--model', type=str, default='fairgnn')
+        parser.add_argument('--model', type=str, default='gcn')
+        parser.add_argument('--training', type=str, default='fairgnn')
         parser.add_argument('--dataset', type=str, default='credit')
         parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='Disables CUDA training.')
@@ -104,13 +105,15 @@ def main():
 
         edge_index = convert.from_scipy_sparse_matrix(adj)[0]
         num_class = labels.unique().shape[0]-1
+
+        
         
         lr = .01
         weight_decay = 5e-4
 
         num_class = labels.unique().shape[0]-1
         
-        if args.model == 'fairgnn':
+        if args.training == 'fairgnn':
                 f1s, parity, equality, counter, robust = fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens, device,sens_idx)
                 print(f1s,counter,robust,parity,equality)
         elif args.model == 'fairwalk':
