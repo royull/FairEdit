@@ -40,7 +40,7 @@ def flipAdj(edge_idx: torch.Tensor,i,j,n):
 class bf_trainer():
     def __init__(self, sense_idx, numEdit, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
                     labels=None, device=None, train_idx=None, val_idx=None, sens=None):
-        numEdit = 0
+        self.debug = False
         self.model = model
         self.sense_idx = sense_idx # int, which attribute dimension is sensitive?
         self.numEdit = numEdit # number of edges that we plan to edit
@@ -63,11 +63,17 @@ class bf_trainer():
 
     def train(self, epochs=200):
 
-        best_loss = 100
-        best_acc = 0
+        best_loss = 1e5
+        minLoss = 1e5
+        log_f1 = None
+        log_rob = None
+        log_fair = None
+        log_parity = None
+        log_equility = None
 
         for epoch in range(epochs):
-            print("===Training Epoch: ", epoch)
+            if self.debug:
+                print("===Training Epoch: ", epoch)
             ## TODO: Perform a search over all edge edits within each neighborhood of a node to find one that helps fairness
             # You will need to bring over the fairness metrics (make it be able to use any metric we choose) and then brute force search 
 
@@ -95,9 +101,13 @@ class bf_trainer():
             counter_output = self.model(self.counter_features.to(self.device),self.edge_index.to(self.device))
             counter_preds = (counter_output.squeeze()>0).type_as(self.labels)
             top_fair_score = 1. - (preds.eq(counter_preds)[self.train_idx].sum().item()/self.train_idx.shape[0])
-            print("Original Fair Score: ", top_fair_score)
-            if (wait < epoch and epoch < wait + self.numEdit):
-                print("==Try Graph Edit")
+            if self.debug:
+                print("Original Fair Score: ", top_fair_score)
+            if (wait <= epoch and epoch < wait + self.numEdit):
+                if self.debug:
+                    print("Original Fair Score: ", top_fair_score)
+                    print("==Try Graph Edit")
+                edit_pair = [-1,-1]
                 output = self.model(self.features,self.edge_index.to(self.device))
                 preds = (output.squeeze()>0).type_as(self.labels)
                 # print(preds)
@@ -109,9 +119,10 @@ class bf_trainer():
                 # exit()
                 top_fair_score = 1. - (preds.eq(counter_preds)[self.train_idx].sum().item()/self.train_idx.shape[0])
                 top_edit = self.edge_index.clone()
-                print("Original Fair Score: ", top_fair_score)
+                if (self.debug):
+                    print("Original Fair Score: ", top_fair_score)
                 done_edit = False
-                if(top_fair_score == 0):
+                if(top_fair_score == 0 and self.debug):
                     print("Optimal fair score, done!")
                     done_edit = True
                 # NOTE: the lower the better
@@ -133,15 +144,18 @@ class bf_trainer():
                             t_counter_preds = (t_counter_output.squeeze()>0).type_as(self.labels)
                             t_fair_score = 1 - (t_preds.eq(t_counter_preds)[self.train_idx].sum().item()/self.train_idx.shape[0])
                             t3 = time()
-                            print("Edit ({},{}), score: {}".format(i,j,t_fair_score))
-                            print(t3-t1)
-                            print(len(self.train_idx))
+                            if (self.debug):
+                                print("Edit ({},{}), score: {}".format(i,j,t_fair_score))
+                                print(t3-t1)
+                                print(len(self.train_idx))
                             if (t_fair_score < top_fair_score):
                                 top_fair_score = t_fair_score
                                 top_edit = newGraph
+                                edit_pair = [i,j]
                 # Then replace the original with this edit
                 #   notice that we only do edit on train_idx, therefore having no effect on val_idx
                 self.edge_index = top_edit.to(self.device)
+                print("Edit pair: ", edit_pair)
 
 #           Evaluate validation set performance separately,
             output = self.model(self.features, self.edge_index)
@@ -162,10 +176,19 @@ class bf_trainer():
             robustness_score = 1 - (preds.eq(noisy_output_preds)[self.val_idx].sum().item()/self.val_idx.shape[0])
             parity, equality = fair_metric(preds[self.val_idx].cpu().numpy(), self.labels[self.val_idx].cpu().numpy(), self.sens[self.val_idx].numpy())
 
-            print("== f1: {} fair: {} robust: {}, parity:{} equility: {}".format(f1_val,fair_score,robustness_score,parity,equality))
+            if self.debug:
+                print("== f1: {} fair: {} robust: {}, parity:{} equility: {}".format(f1_val,fair_score,robustness_score,parity,equality))
+            if (loss_train < minLoss):
+                minLoss = loss_train
+                log_f1 = f1_val
+                log_fair = fair_score
+                log_rob = robustness_score
+                log_parity = parity
+                log_equility = equality
 
 #           Record the best model 
             if loss_val.item() < best_loss:
                 best_loss = loss_val.item()
                 torch.save(self.model.state_dict(), 'results/weights/{0}_{1}_{2}.pt'.format(self.model_name, 'bruteforce', self.dataset))
+        print("===\n Final: f1: {} fair: {} robust: {}, parity:{} equility: {}".format(log_f1,log_fair,log_rob,log_parity,log_equility))
 
