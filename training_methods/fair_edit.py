@@ -8,13 +8,13 @@ from typing import Optional
 from scipy.sparse import coo_matrix
 from torch_geometric.utils import to_scipy_sparse_matrix, from_scipy_sparse_matrix, dropout_adj
 import copy
-from math import sqrt
+from math import sqrt, floor
 from inspect import signature
 
 from tqdm import tqdm
 from torch_geometric.data import Data, Batch
 from torch_geometric.nn import MessagePassing
-from torch_geometric.utils import k_hop_subgraph, to_networkx, sort_edge_index
+from torch_geometric.utils import k_hop_subgraph, to_networkx, sort_edge_index, dense_to_sparse, to_dense_adj
 
 from ismember import ismember
 
@@ -48,9 +48,7 @@ class GNNExplainer(torch.nn.Module):
         
         std = torch.nn.init.calculate_gain('relu') * sqrt(2.0 / (2 * N))
         self.edge_mask = torch.nn.Parameter(torch.randn(E) * std)
-        print(self.edge_mask.shape)
         self.perturbed_mask = torch.nn.Parameter(torch.randn(E_p) * std)
-        print(self.perturbed_mask.shape)
         for module in self.model.modules():
             if isinstance(module, MessagePassing):
                 module.__explain__ = True
@@ -111,7 +109,7 @@ class GNNExplainer(torch.nn.Module):
         
         optimizer = torch.optim.Adam([self.edge_mask, self.perturbed_mask], lr=self.lr)
 
-        for e in range(0, 2):
+        for e in range(0, 5):
             print('gnn_explainer: ' + str(e))
             optimizer.zero_grad()
             out = self.model(x=x, edge_index=edge_index, **kwargs)
@@ -147,102 +145,120 @@ class fair_edit_trainer():
         self.edit_num = edit_num
         self.perturbed_edge_index = None
         self.sens_idx = sens_idx
-
-    def add_drop_edge_random(self, graph_edge_index, p=0.001,q=0.0001):
-        """
-        Graph_edge_index: Enter Graph edge index
-        p: probability of drop edge
-        q: probability of add edge
-        returns: edge_index
-        """
-        # TODO: Can we speed this up at all?
-        sens_att=self.features[:, self.sens_idx]
-        sens_matrix=torch.outer(sens_att+1,sens_att+1)
-        sens_matrix=1*(sens_matrix==2)
-        sens_matrix=torch.Tensor.numpy(sens_matrix)
-        #graph_edge_index, _ = dropout_adj(graph_edge_index, p=p,force_undirected=True)
-
-        B=to_scipy_sparse_matrix(graph_edge_index)
-        b=B.toarray()
-        n=len(b)
-
-        #Create Random variable
-        s = np.random.uniform(0, 1, (n, n))
-        s=s+s.T
-        s = 1 * (s < 2*q)
-        #Record edges added
-        same=((s * sens_matrix)+b)==2
-        edges_added =(s * sens_matrix)-1*same
-        #Add edge
-        b= np.maximum(s*sens_matrix,b)
-        b= np.maximum(s*sens_matrix,b)
-        #b[i,i]=0
-
-        # Create Random variable
-        s1 = np.random.uniform(0, 1, (n,n))
-        s1 = s1+s1.T
-        s1 = 1 * (s1 > 2*p)
-        # Record edges removed
-        #same1 = (s1 + sens_matrix + b )== 0
-        edges_removed = b*(-np.minimum(s1 + sens_matrix,1)+1)
-        #Delete edge
-        b = np.minimum((s1 + sens_matrix), b)
-        b = np.minimum((s1 + sens_matrix), b)
-        #b[i, i] = 0
-
-        temp=coo_matrix(b)
-        temp,_=from_scipy_sparse_matrix(temp)
+        counter_features = features.clone()
+        counter_features[:, sens_idx] = 1 - counter_features[:, sens_idx]
+        self.counter_features = counter_features
+    
+    def add_drop_edge_random(self, add_prob=0.001, del_prob=0.1):
         
-        return temp,from_scipy_sparse_matrix(coo_matrix(edges_added))[0],from_scipy_sparse_matrix(coo_matrix(edges_removed))[0]
+        N, F = self.features.size() 
+        E = self.edge_index.size(1)
+
+        ### DELETE
+        sens_att = self.features[:, self.sens_idx].int()
+        sens_matrix_base = sens_att.reshape(-1, 1) + sens_att
+        sens_matrix_delete = torch.where(sens_matrix_base != 1, 1, 0).fill_diagonal_(0).int()
+        sens_matrix_add = sens_matrix = torch.where(sens_matrix_base == 1, 1, 0).fill_diagonal_(0).int()
+
+        # Get the current graph and filter sensitives based on what is already there
+        dense_adj = torch.abs(to_dense_adj(self.edge_index)[0, :, :]).fill_diagonal_(0).int()
+        to_delete = torch.logical_and(dense_adj, sens_matrix_delete).int()
+        to_add = torch.logical_and(dense_adj, sens_matrix_add).int()
+
+        # Generate scores 
+        scores = torch.Tensor(np.random.uniform(0, 1, (N, N)))
+
+        # DELETE
+        masked_scores = scores * to_delete
+        masked_scores = torch.triu(masked_scores, diagonal=1)
+        num_non_zero = torch.count_nonzero(masked_scores)
+        edits_to_make = floor(E * del_prob)
+        if num_non_zero < edits_to_make:
+            edits_to_make = num_non_zero
+        top_delete = torch.topk(masked_scores.flatten(), edits_to_make).indices
+        base_end = torch.remainder(top_delete, N)
+        base_start = torch.floor_divide(top_delete, N)
+        end = torch.cat((base_end, base_start))
+        start = torch.cat((base_start, base_end))
+        delete_indices = torch.stack([end, start])
+
+        # ADD
+        masked_scores = scores * to_add
+        masked_scores = torch.triu(masked_scores, diagonal=1)
+        num_non_zero = torch.count_nonzero(masked_scores)
+        edits_to_make = floor(N**2 * add_prob)
+        if num_non_zero < edits_to_make:
+            edits_to_make = num_non_zero
+        top_adds = torch.topk(masked_scores.flatten(), edits_to_make).indices
+        base_end = torch.remainder(top_adds, N)
+        base_start = torch.floor_divide(top_adds, N)
+        end = torch.cat((base_end, base_start))
+        start = torch.cat((base_start, base_end))
+        add_indices = torch.stack([end, start])
+        
+        return delete_indices, add_indices
 
 
-    def edge_index_to_index1(edge_index,dropped_index):
-        """
-        Description: edge_list: edge list of input original graph
-                 dropped index: edge list dropped from edge_list
-                 returns: list of index
-        """
+    def perturb_graph(self, deleted_edges, add_edges):
 
-        ii,_=ismember(edge_index.T.tolist(), dropped_index.T.tolist(), 'rows')
-        return np.where(ii==True)
+        # Edges deleted from original edge_index
+        delete_indices = []
+        self.perturbed_edge_index = copy.deepcopy(self.edge_index)
+        for edge in deleted_edges.T:
+            vals = (self.edge_index == torch.tensor([[edge[0]], [edge[1]]]))
+            sum = torch.sum(vals, dim=0)
+            col_idx = np.where(sum == 2)[0][0]
+            delete_indices.append(col_idx)
+
+        delete_indices.sort(reverse=True)
+        for col_idx in delete_indices:
+            self.perturbed_edge_index = torch.cat((self.edge_index[:, :col_idx], self.edge_index[:, col_idx+1:]), axis=1)
+
+        # edges added to perturbed edge_index
+        start_edges = self.perturbed_edge_index.shape[1]
+        add_indices = [i for i in range(start_edges, start_edges + add_edges.shape[1], 1)]
+        self.perturbed_edge_index = torch.cat((self.perturbed_edge_index, add_edges), axis=1)
+
+        return delete_indices, add_indices
 
     def fair_graph_edit(self):
         
         grad_gen = GNNExplainer(self.model)
-
-        # TODO Can we make add/deleted edges indices, not the actual edges?
-        self.perturbed_edge_index, add_edges, deleted_edges = self.add_drop_edge_random(self.edge_index)
-        print(self.perturbed_edge_index)
-        print(add_edges)
-        sys.exit()
+    
+        # perturb graph (return the ACTUAL edges)
+        deleted_edges, added_edges = self.add_drop_edge_random()         
+        # get indices of pertubations in edge list (indices in particular edge_lists)             
+        del_indices, add_indices = self.perturb_graph(deleted_edges, added_edges) 
+        # generate gradients on these perturbations
         edge_mask, perturbed_mask = grad_gen.explain_graph(self.features, self.edge_index, self.perturbed_edge_index)
-        
-        # TODO get added and deleted to index mask
-        added_grads = perturbed_mask[add_edges]
-        deleted_grads = edge_mask[deleted_edges]
-        print(deleted_grads)
+        added_grads = perturbed_mask[add_indices]
+        deleted_grads = edge_mask[del_indices]
      
-        best_add_score = torch.max(added_grads)
-        best_add = torch.argmax(added_grads)
-        best_add = add_edges[best_add]
-        best_delete_score = torch.max(deleted_grads)
-        best_delete = torch.argmax(deleted_grads)
-        best_delete = deleted_edges[best_delete]
+        # figure out which perturbations were best 
+        best_add_score = torch.min(added_grads)
+        best_add_idx = torch.argmin(added_grads)
+        best_add = added_edges[:, best_add_idx]
+
+        best_delete_score = torch.min(deleted_grads)
+        best_delete_idx = torch.argmin(deleted_grads)
+        best_delete = deleted_edges[:, best_delete_idx]
         
         # we want to add edge since better
         if best_add_score < best_delete_score:
             # add both directions since undirected graph
-            edge_nodes = self.perturbed_edge_index[:, best_add]
-            best_add_comp = torch.tensor([[edge_nodes[1]], [edge_nodes[0]]])
-            self.edge_index = torch.cat((self.edge_index, edge_nodes.view(2, 1), best_add_comp), axis=1)
+            best_add_comp = torch.tensor([[best_add[1]], [best_add[0]]])
+            self.edge_index = torch.cat((self.edge_index, best_add.view(2, 1), best_add_comp), axis=1)
         else: # delete
-            edge_nodes = self.edge_index[:, best_delete]
-            self.edge_index = torch.cat((self.edge_index[:, :best_delete], self.edge_index[:, best_delete+1:]), axis=1)
-            if edge_nodes[0] != edge_nodes[1]:
-                vals = (self.edge_index == torch.tensor([[edge_nodes[1]], [edge_nodes[0]]]))
-                sum = torch.sum(vals, dim=0)
-                col_idx = np.where(sum == 2)[0][0]
-                self.edge_index = torch.cat((self.edge_index[:, :col_idx], self.edge_index[:, col_idx+1:]), axis=1)
+            val_del = (self.edge_index == torch.tensor([[best_delete[1]], [best_delete[0]]]))
+            sum_del = torch.sum(val_del, dim=0)
+            col_idx_del = np.where(sum_del == 2)[0][0]
+            self.edge_index = torch.cat((self.edge_index[:, :col_idx_del], self.edge_index[:, col_idx_del+1:]), axis=1)
+
+            best_delete_comp = torch.tensor([[best_delete[1]], [best_delete[0]]])
+            val_del_comp = (self.edge_index == torch.tensor([[best_delete_comp[1]], [best_delete_comp[0]]]))
+            sum_del_comp = torch.sum(val_del_comp, dim=0)
+            col_idx_del_comp = np.where(sum_del_comp == 2)[0][0]
+            self.edge_index = torch.cat((self.edge_index[:, :col_idx_del_comp], self.edge_index[:, col_idx_del_comp+1:]), axis=1)
 
     def train(self, epochs=200):
 
@@ -270,9 +286,17 @@ class fair_edit_trainer():
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_val = F.binary_cross_entropy_with_logits(output[self.val_idx ], self.labels[self.val_idx ].unsqueeze(1).float().to(self.device))
 
+            f1_val = f1_score(self.labels[self.val_idx].cpu().numpy(), preds[self.val_idx].cpu().numpy())
+            counter_output = self.model(self.counter_features.to(self.device),self.edge_index.to(self.device))
+            counter_preds = (counter_output.squeeze()>0).type_as(self.labels)
+            fair_score = 1 - (preds.eq(counter_preds)[self.val_idx].sum().item()/self.val_idx.shape[0])
+            print("== f1: {} fair: {}".format(f1_val,fair_score))
+
+            print(loss_val)
             if epoch < self.edit_num:
                 self.fair_graph_edit()
             
+
             if loss_val.item() < best_loss:
                 best_loss = loss_val.item()
                 torch.save(self.model.state_dict(), 'results/weights/{0}_{1}_{2}.pt'.format(self.model_name, 'fairedit', self.dataset))
