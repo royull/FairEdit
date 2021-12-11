@@ -111,8 +111,8 @@ def main():
         num_class = labels.unique().shape[0]-1
         
         if args.model == 'fairgnn':
-                accu, f1s, parity, counter, robust = fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens, device,sens_idx)
-                print(accu,f1s,parity,counter,robust)
+                f1s, parity, equality, counter, robust = fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens, device,sens_idx)
+                print(f1s,counter,robust,parity,equality)
         elif args.model == 'fairwalk':
                 pass
 
