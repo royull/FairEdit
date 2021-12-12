@@ -9,7 +9,8 @@ class GCN(nn.Module):
     def __init__(self, nfeat, nhid, nclass, dropout):
         super(GCN, self).__init__()
         self.model_name = 'gcn'
-        self.body = GCN_Body(nfeat,nhid,dropout)
+        self.body1 = GCN_Body(nfeat,nhid,dropout)
+        self.body2 = GCN_Body(nhid,nhid,dropout)
         self.fc = nn.Linear(nhid, nclass)
 
         for m in self.modules():
@@ -22,7 +23,8 @@ class GCN(nn.Module):
                 m.bias.data.fill_(0.0)
 
     def forward(self, x, edge_index):
-        x = self.body(x, edge_index)
+        x = self.body1(x, edge_index)
+        x = self.body2(x, edge_index)
         x = self.fc(x)
         return x
 

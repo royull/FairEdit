@@ -41,8 +41,8 @@ def main():
         parser.add_argument('--dataset', type=str, default='credit')
         parser.add_argument('--training_method', type=str, default=None,
                         choices=['standard','brute','fairedit','nifty'])
-        parser.add_argument('--epochs',type=int,default=300,help='Number of epochs to train.')
-        parser.add_argument('--lr', type=float, default=0.01,
+        parser.add_argument('--epochs',type=int,default=150,help='Number of epochs to train.')
+        parser.add_argument('--lr', type=float, default=5e-3,
                         help='Initial learning rate.')
         parser.add_argument('--weight_decay', type=float, default=1e-5,
                         help='Weight decay (L2 loss on parameters).')
@@ -51,6 +51,7 @@ def main():
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         seed = 17
 
+        print('model: {0}, dataset: {1}, methpd: {2}'.format(args.model, args.dataset, args.training_method))
         # set seeds
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -110,25 +111,25 @@ def main():
         #### Load Models ####
         if args.model == 'gcn':
                 model = GCN(nfeat=features.shape[1],
-                        nhid=64,
+                        nhid=16,
                         nclass=num_class,
                         dropout=0.5)
 
         elif args.model == 'sage':
                 model = SAGE(nfeat=features.shape[1],
-                        nhid=64,
+                        nhid=16,
                         nclass=num_class,
                         dropout=0.5)
         
         elif args.model == 'appnp':
                  model = APPNP(nfeat=features.shape[1],
-                         nhid=64,
+                         nhid=16,
                          nclass=num_class,
                          K=2, alpha=0.1, dropout=0.5)
 
         #### Set up training ####
         ## lr and weight decay should take values passed
-        lr = .01 #args.lr
+        lr = args.lr
         weight_decay = 5e-4 #args.weight_decay
         optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
         model = model.to(device)
@@ -153,8 +154,8 @@ def main():
                         trainer = fair_edit_trainer(model=model, dataset=args.dataset, optimizer=optimizer,
                                                         features=features, edge_index=edge_index,
                                                         labels=labels, device=device, train_idx=idx_train,
-                                                        val_idx=idx_val, sens_idx=sens_idx)
-                acc,f1s,parity,equality = trainer.train(epochs=args.epochs) 
+                                                        val_idx=idx_val, sens_idx=sens_idx, sens=sens)
+                acc, f1s, parity, counterfactual_fairness, robust, equality  = trainer.train(epochs=args.epochs) 
                 # moved up because training epochs are already incorporated into nifty
                 print(acc,f1s,parity,equality)
         elif args.training_method == 'nifty':  
@@ -181,10 +182,10 @@ def main():
                                 help="number of hidden layers")
                 args = parser.parse_known_args()[0]
                 print(features.shape[1],args.hidden)
-                acc, f1s, parity, counterfactual_fairness, robust = nifty(features=features,edge_index=edge_index,
+                acc, f1s, parity, counterfactual_fairness, robust, equality = nifty(features=features,edge_index=edge_index,
                 labels=labels,device=device,sens=sens,sens_idx=sens_idx, idx_train=idx_train,idx_test=idx_test,
                 idx_val=idx_val,num_class=num_class,lr=args.lr,weight_decay=args.weight_decay,args=args,sim_coeff=args.sim_coeff)
-                print(acc, f1s, parity, counterfactual_fairness, robust)
+                print('f1: {1}, parity: {2}, cf: {3}, rob: {4}, equal: {5}'.format(acc, f1s, parity, counterfactual_fairness, robust, equality))
         else:
                 print("Error: Training Method not provided")
                 exit(1)

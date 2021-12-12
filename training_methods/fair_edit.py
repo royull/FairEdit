@@ -19,7 +19,17 @@ from torch_geometric.utils import k_hop_subgraph, to_networkx, sort_edge_index, 
 from ismember import ismember
 
 
+    
 EPS = 1e-15
+
+def fair_metric(pred, labels, sens):
+    idx_s0 = sens==0
+    idx_s1 = sens==1
+    idx_s0_y1 = np.bitwise_and(idx_s0, labels==1)
+    idx_s1_y1 = np.bitwise_and(idx_s1, labels==1)
+    parity = abs(sum(pred[idx_s0])/sum(idx_s0)-sum(pred[idx_s1])/sum(idx_s1))
+    equality = abs(sum(pred[idx_s0_y1])/sum(idx_s0_y1)-sum(pred[idx_s1_y1])/sum(idx_s1_y1))
+    return parity.item(), equality.item()
 
 class GNNExplainer(torch.nn.Module):
     coeffs = {
@@ -84,7 +94,7 @@ class GNNExplainer(torch.nn.Module):
 
     def __loss__(self, pred, pred_perturb):
         
-        loss = torch.norm(pred - pred_perturb, 2)
+        loss = torch.norm(pred - pred_perturb, 1)
         
         return loss
 
@@ -109,8 +119,8 @@ class GNNExplainer(torch.nn.Module):
         
         optimizer = torch.optim.Adam([self.edge_mask, self.perturbed_mask], lr=self.lr)
 
-        for e in range(0, 5):
-            print('gnn_explainer: ' + str(e))
+        for e in range(0, 10):
+            #print('gnn_explainer: ' + str(e))
             optimizer.zero_grad()
             out = self.model(x=x, edge_index=edge_index, **kwargs)
             out_p = self.model_p(x=x, edge_index=perturbed_edge_index, **kwargs)
@@ -130,7 +140,7 @@ class GNNExplainer(torch.nn.Module):
 
 class fair_edit_trainer():
     def __init__(self, model=None, dataset=None, optimizer=None, features=None, edge_index=None, 
-                    labels=None, device=None, train_idx=None, val_idx=None, sens_idx=None, edit_num=20):
+                    labels=None, device=None, train_idx=None, val_idx=None, sens_idx=None, edit_num=10, sens=None):
         self.model = model
         self.model_name = model.model_name
         self.dataset = dataset
@@ -145,25 +155,24 @@ class fair_edit_trainer():
         self.edit_num = edit_num
         self.perturbed_edge_index = None
         self.sens_idx = sens_idx
+        self.sens = sens
         counter_features = features.clone()
         counter_features[:, sens_idx] = 1 - counter_features[:, sens_idx]
         self.counter_features = counter_features
+        sens_att = self.features[:, self.sens_idx].int()
+        sens_matrix_base = sens_att.reshape(-1, 1) + sens_att
+        self.sens_matrix_delete = torch.where(sens_matrix_base != 1, 1, 0).fill_diagonal_(0).int()
+        self.sens_matrix_add = torch.where(sens_matrix_base == 1, 1, 0).fill_diagonal_(0).int()
     
-    def add_drop_edge_random(self, add_prob=0.001, del_prob=0.1):
+    def add_drop_edge_random(self, add_prob=0.001, del_prob=0.01):
         
         N, F = self.features.size() 
         E = self.edge_index.size(1)
 
-        ### DELETE
-        sens_att = self.features[:, self.sens_idx].int()
-        sens_matrix_base = sens_att.reshape(-1, 1) + sens_att
-        sens_matrix_delete = torch.where(sens_matrix_base != 1, 1, 0).fill_diagonal_(0).int()
-        sens_matrix_add = sens_matrix = torch.where(sens_matrix_base == 1, 1, 0).fill_diagonal_(0).int()
-
         # Get the current graph and filter sensitives based on what is already there
         dense_adj = torch.abs(to_dense_adj(self.edge_index)[0, :, :]).fill_diagonal_(0).int()
-        to_delete = torch.logical_and(dense_adj, sens_matrix_delete).int()
-        to_add = torch.logical_and(dense_adj, sens_matrix_add).int()
+        to_delete = torch.logical_and(dense_adj, self.sens_matrix_delete).int()
+        to_add = torch.logical_and(dense_adj, self.sens_matrix_add).int()
 
         # Generate scores 
         scores = torch.Tensor(np.random.uniform(0, 1, (N, N)))
@@ -269,12 +278,12 @@ class fair_edit_trainer():
             self.model.train()
             self.optimizer.zero_grad()
             output = self.model(self.features, self.edge_index)
-            print('epoch: ' + str(epoch))
+            #print('epoch: ' + str(epoch))
             
             # Binary Cross-Entropy  
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_train = F.binary_cross_entropy_with_logits(output[self.train_idx], self.labels[self.train_idx].unsqueeze(1).float().to(self.device))
-
+            f1_train = f1_score(self.labels[self.train_idx].cpu().numpy(), preds[self.train_idx].cpu().numpy())
             loss_train.backward()
             self.optimizer.step()
             
@@ -286,18 +295,28 @@ class fair_edit_trainer():
             preds = (output.squeeze()>0).type_as(self.labels)
             loss_val = F.binary_cross_entropy_with_logits(output[self.val_idx ], self.labels[self.val_idx ].unsqueeze(1).float().to(self.device))
 
-            f1_val = f1_score(self.labels[self.val_idx].cpu().numpy(), preds[self.val_idx].cpu().numpy())
+            
+            f1_val = f1_score(self.labels[self.val_idx ].cpu().numpy(), preds[self.val_idx ].cpu().numpy())
+#           Counter factual fairness
             counter_output = self.model(self.counter_features.to(self.device),self.edge_index.to(self.device))
             counter_preds = (counter_output.squeeze()>0).type_as(self.labels)
             fair_score = 1 - (preds.eq(counter_preds)[self.val_idx].sum().item()/self.val_idx.shape[0])
-            print("== f1: {} fair: {}".format(f1_val,fair_score))
+#           Robustness    
+            noisy_features = self.features.clone() + torch.ones(self.features.shape).normal_(0, 1).to(self.device)
+            noisy_output = self.model(noisy_features, self.edge_index)
+            noisy_output_preds = (noisy_output.squeeze()>0).type_as(self.labels)
+            robustness_score = 1 - (preds.eq(noisy_output_preds)[self.val_idx].sum().item()/self.val_idx.shape[0])
+            parity, equality = fair_metric(preds[self.val_idx].cpu().numpy(), self.labels[self.val_idx].cpu().numpy(), self.sens[self.val_idx].numpy())
 
-            print(loss_val)
             if epoch < self.edit_num:
+                print(epoch)
                 self.fair_graph_edit()
             
 
             if loss_val.item() < best_loss:
                 best_loss = loss_val.item()
                 torch.save(self.model.state_dict(), 'results/weights/{0}_{1}_{2}.pt'.format(self.model_name, 'fairedit', self.dataset))
+        print("== f1: {} fair: {} robust: {}, parity:{} equility: {}".format(f1_val,fair_score,robustness_score,parity,equality))
+        return None, f1_val, fair_score, robustness_score, parity, equality
+
 

@@ -168,4 +168,4 @@ def nifty(features,edge_index,labels,device,sens,sens_idx,idx_train,idx_test,idx
     parity, equality = fair_metric(output_preds[idx_test].cpu().numpy(), labels[idx_test].cpu().numpy(), sens[idx_test].numpy())
     f1_s = f1_score(labels[idx_test].cpu().numpy(), output_preds[idx_test].cpu().numpy())
 
-    return auc_roc_test, f1_s, parity, counterfactual_fairness, robustness_score
+    return auc_roc_test, f1_s, parity, counterfactual_fairness, robustness_score, equality

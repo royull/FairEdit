@@ -119,7 +119,7 @@ class Encoder(torch.nn.Module):
         elif self.base_model == 'sage':
             self.conv = SAGE(nfeat=in_channels, nhid=out_channels, dropout=0.5)
         elif self.base_model == 'appnp':
-            self.conv = APPNP(nfeat=in_channels,nhid=out_channels)
+            self.conv = APPNP(nfeat=in_channels,nhid=out_channels, nclass=1)
         
         for m in self.modules():
             self.weights_init(m)
