@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: fairwalk
+Version: 0.3.2
+Summary: Implementation of the fairwalk algorithm.
+Home-page: https://github.com/urielsinger/fairwalk
+Author: Uriel Singer
+Author-email: urielsinger@cs.technion.ac.il
+License: MIT
+Keywords: machine learning,embeddings
+Platform: UNKNOWN
+License-File: LICENSE
+
+UNKNOWN
+

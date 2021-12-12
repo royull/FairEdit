@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import torch.optim as optim
 from torch.nn import Linear
+import torch.nn as nn
 from torch_geometric.nn import APPNP as APPNP_base
 from deeprobust.graph import utils
 from copy import deepcopy
@@ -13,8 +14,8 @@ class APPNP(torch.nn.Module):
         super(APPNP, self).__init__()
         self.model_name = 'appnp'
 
-        self.lin1 = Linear(nfeat, nhid)
-        self.lin2 = Linear(nhid, nclass)
+        self.lin1 = nn.Linear(nfeat, nhid)
+        self.lin2 = nn.Linear(nhid, nclass)
         self.prop1 = APPNP_base(K, alpha)
         self.dropout = dropout
 
@@ -30,8 +31,3 @@ class APPNP(torch.nn.Module):
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.prop1(x, edge_index)
         return x
-
-
-
-
-

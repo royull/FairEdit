@@ -95,6 +95,6 @@ def fgn(args,adj,features,labels, edge_index, idx_train, idx_val, idx_test, sens
     counter_preds = (counter_output.squeeze()>0).type_as(labels)
     counter_fair_score = 1 - (output_preds.eq(counter_preds)[idx_test].sum().item()/idx_test.shape[0])
     
-    return auc_roc_test, f1_s, parity, counter_fair_score, robustness_score
+    return f1_s, parity, equality, counter_fair_score, robustness_score
 
 

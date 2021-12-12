@@ -5,7 +5,7 @@ from torch_geometric.nn import SAGEConv
 
 
 class SAGE(nn.Module):
-    def __init__(self, nfeat, nhid, nclass, dropout): 
+    def __init__(self, nfeat, nhid, dropout, nclass): 
         super(SAGE, self).__init__()
         self.model_name = 'sage'
         self.conv1 = SAGEConv(nfeat, nhid, normalize=True)
@@ -33,3 +33,22 @@ class SAGE(nn.Module):
         x = self.transition(x)
         x = self.conv2(x, edge_index)
         return self.fc(x)
+
+class SAGE_Body(nn.Module):
+    def __init__(self, nfeat, nhid, dropout):
+        super(SAGE_Body, self).__init__()
+        self.conv1 = SAGEConv(nfeat, nhid, normalize=True)
+        self.conv1.aggr = 'mean'
+        self.transition = nn.Sequential(
+            nn.ReLU(),
+            nn.BatchNorm1d(nhid),
+            nn.Dropout(p=dropout)
+        )
+        self.conv2 = SAGEConv(nhid, nhid, normalize=True)
+        self.conv2.aggr = 'mean'
+
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index)
+        x = self.transition(x)
+        x = self.conv2(x, edge_index)
+        return x    

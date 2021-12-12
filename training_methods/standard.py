@@ -26,8 +26,13 @@ class standard_trainer():
 
     def train(self, epochs=200):
 
-        best_loss = 100
-        best_acc = 0
+        best_loss = 1e5
+        minLoss = 1e5
+        log_f1 = None
+        log_rob = None
+        log_fair = None
+        log_parity = None
+        log_equility = None
 
         for epoch in range(epochs):
             print("===Training Epoch: ", epoch)

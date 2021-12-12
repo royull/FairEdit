@@ -6,7 +6,7 @@ from torch_geometric.nn import GCNConv
 
 
 class GCN(nn.Module):
-    def __init__(self, nfeat, nhid, nclass, dropout):
+    def __init__(self, nfeat, nhid, dropout, nclass):
         super(GCN, self).__init__()
         self.model_name = 'gcn'
         self.body1 = GCN_Body(nfeat,nhid,dropout)

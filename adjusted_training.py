@@ -46,6 +46,10 @@ def main():
                         help='Initial learning rate.')
         parser.add_argument('--weight_decay', type=float, default=1e-5,
                         help='Weight decay (L2 loss on parameters).')
+        parser.add_argument('--hidden', type=int, default=32,
+                        help='Num of hidden stattes')
+        parser.add_argument('--dropout', type=float, default=0.5,
+                        help='drop out rate')
         args = parser.parse_known_args()[0]
         
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -111,21 +115,21 @@ def main():
         #### Load Models ####
         if args.model == 'gcn':
                 model = GCN(nfeat=features.shape[1],
-                        nhid=16,
+                        nhid=args.hidden,
                         nclass=num_class,
-                        dropout=0.5)
+                        dropout=args.dropout)
 
         elif args.model == 'sage':
                 model = SAGE(nfeat=features.shape[1],
-                        nhid=16,
+                        nhid=args.hidden,
                         nclass=num_class,
-                        dropout=0.5)
+                        dropout=args.dropout)
         
         elif args.model == 'appnp':
                  model = APPNP(nfeat=features.shape[1],
                          nhid=16,
                          nclass=num_class,
-                         K=2, alpha=0.1, dropout=0.5)
+                         K=2, alpha=0.1, dropout=args.dropout)
 
         #### Set up training ####
         ## lr and weight decay should take values passed
@@ -140,7 +144,8 @@ def main():
         trainer = None
         if args.training_method in ['standard','brute','fairedit']:
                 if args.training_method == 'standard':   
-                        trainer = standard_trainer(model=model,sense_idx = sens_idx, dataset=args.dataset, optimizer=optimizer, 
+                        # When numEdit = 0, bf_trainer is reduced to the standard trainer
+                        trainer = bf_trainer(model=model, numEdit = 0, sense_idx = sens_idx, dataset=args.dataset, optimizer=optimizer, 
                                                         features=features, edge_index=edge_index, 
                                                         labels=labels, device=device, train_idx=idx_train, 
                                                         val_idx=idx_val,sens=sens)
