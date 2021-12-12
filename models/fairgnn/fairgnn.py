@@ -10,8 +10,6 @@ def get_model(nfeat, args):
         model = GCN_Body(nfeat=nfeat,nhid=args.num_hidden,dropout=args.dropout)
     elif args.model == "sage":
         model = SAGE_Body(nfeat=nfeat,nhid=args.num_hidden,dropout=args.dropout)
-    elif args.model == "appnp":
-        model = APPNP_Body(nfeat=nfeat,nhid=args.num_hidden,dropout=args.dropout)
     else:
         print("Model not implement")
         return
