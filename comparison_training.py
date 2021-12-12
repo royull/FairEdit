@@ -118,7 +118,5 @@ def main():
                 print(f1s,counter,robust,parity,equality)
         elif args.model == 'fairwalk':
                 pass
-
-        #TODO set up training for these methods
     
 main()
