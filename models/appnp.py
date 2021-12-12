@@ -31,20 +31,3 @@ class APPNP(torch.nn.Module):
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.prop1(x, edge_index)
         return x
-
-class APPNP_Body(nn.Module):
-    def __init__(self, nfeat, nhid, nclass, K=2, alpha=0.1, dropout=0.5):
-        super(APPNP_Body, self).__init__()
-        self.lin1 = nn.Linear(nfeat, nhid)
-        self.lin2 = nn.Linear(nhid, nclass)
-        self.prop1 = APPNP_base(K, alpha)
-        self.dropout = dropout
-
-    def forward(self, x, edge_index):
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = F.relu(self.lin1(x))
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.lin2(x)
-        x = F.dropout(x, p=self.dropout, training=self.training)
-        x = self.prop1(x, edge_index)
-        return x
