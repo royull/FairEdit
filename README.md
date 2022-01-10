@@ -1,4 +1,4 @@
-# EECS545
+# FairEdit
 
 # Requirements
 
