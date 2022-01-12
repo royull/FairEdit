@@ -1,5 +1,9 @@
 # FairEdit
 
+# Publication
+
+https://arxiv.org/abs/2201.03681
+
 # Requirements
 
 Use the environment.yml to find the associated packages and versions. 
