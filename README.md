@@ -1,6 +1,8 @@
 # FairEdit
 
-# Publication
+# Relevent Publication
+
+FairEdit: Preserving Fairness in Graph Neural Networks through Greedy Graph Editing
 
 https://arxiv.org/abs/2201.03681
 
