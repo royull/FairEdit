@@ -4,9 +4,6 @@ In this work we introduce FairEdit, the unexplored method of edge addition, acco
 
 ## Relevent Publication
 
-FairEdit: Preserving Fairness in Graph Neural Networks through Greedy Graph Editing
-- [Arxiv](https://arxiv.org/abs/2201.03681)
-- Cite
 ``` bibtex
 @misc{loveland2022fairedit,
       title={FairEdit: Preserving Fairness in Graph Neural Networks through Greedy Graph Editing}, 
@@ -17,6 +14,8 @@ FairEdit: Preserving Fairness in Graph Neural Networks through Greedy Graph Edit
       primaryClass={cs.LG}
 }
 ```
+
+[FairEdit: Preserving Fairness in Graph Neural Networks through Greedy Graph Editing](https://arxiv.org/abs/2201.03681)
 
 ## Reproduce the results
 ### Requirements
