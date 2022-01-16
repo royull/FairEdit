@@ -21,9 +21,9 @@ Note for the above command to work the first line in the for loop has to be comm
 # Models
 
 Folder models holds the various architectures. Examples to load, train, and evaluate can be found in run_models.py. Run_models.py has a lot of possible arguments, here as an example to run:
-
+```
 python adjusted_training.py --dropout 0.5 --hidden 16 --lr 1e-3 --epochs 1000 --model gcn --training_method standard --dataset german --seed 1
-
+```
 where --model can be ['gcn', 'sage'] and --dataset can be ['german', 'credit', 'bail'] and --training_method can be ['standard','brute','fairedit']
 
 model weights are saved to weights folder and evaluation metricss are saved to results. 
@@ -31,9 +31,9 @@ model weights are saved to weights folder and evaluation metricss are saved to r
 # comparison_training.py
 
 contains models to compare against. Example:
-
+```
 python comparison_training.py --dropout 0.5 --hidden 16 --lr 1e-3 --epochs 1000 --model fairgnn --dataset german --seed 1 --num_layers 32
-
+```
 where --model can be ['fairgnn', 'fairwalk'] and --dataset can be ['german', 'credit', 'bail'] 
 
 > Note: Updated in ```adjusted_training.py```, try this one!
