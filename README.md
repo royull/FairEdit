@@ -23,7 +23,7 @@ FairEdit: Preserving Fairness in Graph Neural Networks through Greedy Graph Edit
 
 Use ```environment.yml``` to build the environment
 ### FairEdit & BruteFoce
-Run ```adjusted_training.py`` with specified arguments to do traning with various setups. Model weights are saved to weights folder and evaluation metricss are saved to results. 
+Run ```adjusted_training.py``` with specified arguments to do traning with various setups. Model weights are saved to weights folder and evaluation metricss are saved to results. 
 
 Arguments:
 - ```--model``` can be ```['gcn', 'sage', 'appnp']``` 
@@ -37,7 +37,7 @@ python adjusted_training.py --dropout 0.5 --hidden 16 --lr 1e-3 --epochs 1000 --
 ```
 ### Standard Training & Nifty
 The same ```adjusted_traning.py``` can also be used to run standard training and [NIFTY](https://arxiv.org/abs/2102.13186)
-- Specifically, you just need to change traning method to ```['standrd', 'nifty']```
+- Specifically, you just need to change traning method to ```['standard', 'nifty']```
 
 ### FairWalk
 Code to run [FairWalk](https://www.ijcai.org/proceedings/2019/0456.pdf) can be found in ```models_to_compare_against/FairWalk```
