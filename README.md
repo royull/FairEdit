@@ -3,9 +3,18 @@
 # Relevent Publication
 
 FairEdit: Preserving Fairness in Graph Neural Networks through Greedy Graph Editing
-
-https://arxiv.org/abs/2201.03681
-
+- [Arxiv](https://arxiv.org/abs/2201.03681)
+- Cite
+``` bibtex
+@misc{loveland2022fairedit,
+      title={FairEdit: Preserving Fairness in Graph Neural Networks through Greedy Graph Editing}, 
+      author={Donald Loveland and Jiayi Pan and Aaresh Farrokh Bhathena and Yiyang Lu},
+      year={2022},
+      eprint={2201.03681},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
 # Requirements
 
 Use the environment.yml to find the associated packages and versions. 
