@@ -33,7 +33,7 @@ Folder models holds the various architectures. Examples to load, train, and eval
 ```
 python adjusted_training.py --dropout 0.5 --hidden 16 --lr 1e-3 --epochs 1000 --model gcn --training_method standard --dataset german --seed 1
 ```
-where --model can be ['gcn', 'sage'] and --dataset can be ['german', 'credit', 'bail'] and --training_method can be ['standard','brute','fairedit']
+where --model can be ['gcn', 'sage', 'appnp'] and --dataset can be ['german', 'credit', 'bail'] and --training_method can be ['standard','brute','fairedit']
 
 model weights are saved to weights folder and evaluation metricss are saved to results. 
 
