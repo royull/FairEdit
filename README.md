@@ -17,7 +17,7 @@ In this work we introduce FairEdit, the unexplored method of edge addition, acco
 
 [FairEdit: Preserving Fairness in Graph Neural Networks through Greedy Graph Editing](https://arxiv.org/abs/2201.03681)
 
-## Reproduce the results
+## Reproduce the Results
 ### Requirements
 
 Use ```environment.yml``` to build the environment
